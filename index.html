@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Control de Préstamos V15 - Con Etiquetas de Estado</title>
+    <title>Control de Préstamos V18 - Corrección y Saldos</title>
     <style>
         body { 
             font-family: Arial, sans-serif; 
@@ -29,6 +29,7 @@
         .btn-verde { background-color: #28a745; color: white; border: none; font-weight: bold; border-radius: 5px; cursor: pointer; }
         .btn-rojo { background-color: #dc3545; color: white; border: none; font-weight: bold; border-radius: 5px; cursor: pointer; }
         .btn-gris { background-color: #6c757d; color: white; border: none; font-weight: bold; border-radius: 5px; cursor: pointer; }
+        .btn-amarillo { background-color: #ffc107; color: #212529; border: none; font-weight: bold; border-radius: 5px; cursor: pointer; }
         
         #panel-mensajes {
             padding: 10px;
@@ -76,6 +77,10 @@
         
         #app-protegida { display: none; }
     </style>
+
+    <!-- Importar Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 </head>
 <body>
 
@@ -105,10 +110,11 @@
                 <button class="btn-azul" onclick="mostrarFormularioNuevo()">+ Registrar Nuevo Préstamo</button>
                 <h3>Lista de Clientes</h3>
                 <div id="contenedor-clientes"></div>
-                <button class="btn-rojo" onclick="limpiarTodo()" style="margin-top: 20px;">Borrar Todos los Datos de Préstamos</button>
+                <!-- BOTÓN DE BORRADO GENERAL: SOLO VISIBLE PARA EL ADMIN -->
+                <button id="btn-borrar-todo" class="btn-rojo" onclick="limpiarTodo()" style="margin-top: 20px; display: none;">Borrar Todos los Datos de Préstamos (Solo Admin)</button>
             </div>
 
-            <!-- SECCIÓN NUEVA: COBRO RÁPIDO CON EXCEDENTE EN CASCADA -->
+            <!-- SECCIÓN: COBRO RÁPIDO CON EXCEDENTE EN CASCADA -->
             <div id="vista-cobro-rapido" class="seccion">
                 <h3>Cobro Rápido por Código</h3>
                 <p style="font-size: 14px; color: #555;">Ingresa el código de 4 dígitos del cliente:</p>
@@ -118,7 +124,6 @@
                 
                 <button class="btn-azul" onclick="buscarClientePorCodigo()">Buscar Cuenta</button>
 
-                <!-- Resultado de la búsqueda rápida -->
                 <div id="resultado-busqueda-codigo" style="margin-top: 15px;"></div>
             </div>
 
@@ -157,12 +162,15 @@
                 <button class="btn-gris" onclick="irAVista('vista-lista')">Cancelar</button>
             </div>
 
-            <!-- SECCIÓN: DETALLE DEL CLIENTE SELECCIONADO (CON ETIQUETAS) -->
+            <!-- SECCIÓN: DETALLE DEL CLIENTE SELECCIONADO -->
             <div id="vista-detalle" class="seccion">
                 <button class="btn-gris" onclick="irAVista('vista-lista')">← Volver a la Lista</button>
                 <h3 id="detalle-titulo">Detalle del Préstamo</h3>
-                <div id="detalle-info" style="margin-bottom: 10px; font-weight: bold;"></div>
+                <div id="detalle-info" style="margin-bottom: 10px; font-weight: bold; background: #e9ecef; padding: 10px; border-radius: 5px;"></div>
                 
+                <!-- Botón para corregir/deshacer el último pago registrado por equivocación -->
+                <button class="btn-amarillo" onclick="corregirUltimoPago()">🔄 Deshacer / Corregir Último Pago Registrado</button>
+
                 <table>
                     <thead>
                         <tr>
@@ -180,24 +188,70 @@
     </div>
 
     <script>
+        // CONFIGURACIÓN DE FIREBASE
+        var firebaseConfig = {
+            apiKey: "TU_API_KEY",
+            authDomain: "tu-proyecto.firebaseapp.com",
+            databaseURL: "https://tu-proyecto-default-rtdb.firebaseio.com",
+            projectId: "tu-proyecto",
+            storageBucket: "tu-proyecto.appspot.com",
+            messagingSenderId: "TU_SENDER_ID",
+            appId: "TU_APP_ID"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        var db = firebase.database();
+
         var listaPrestamos = [];
         var listaCodigos = [];
         var indiceActual = null;
         var ADMIN_INICIAL = { nombre: "Administrador Principal", codigo: "1234" };
+        var esUsuarioAdmin = false;
 
         document.addEventListener("DOMContentLoaded", function() {
-            cargarCodigosGuardados();
+            sincronizarDatosDesdeNube();
             pedirCodigoAcceso();
         });
+
+        function sincronizarDatosDesdeNube() {
+            db.ref('codigos').on('value', function(snapshot) {
+                var data = snapshot.val();
+                if (data) {
+                    listaCodigos = Array.isArray(data) ? data : Object.values(data);
+                } else {
+                    listaCodigos = [ADMIN_INICIAL];
+                    db.ref('codigos').set(listaCodigos);
+                }
+                renderizarListaCodigos();
+            });
+
+            db.ref('prestamos').on('value', function(snapshot) {
+                var data = snapshot.val();
+                if (data) {
+                    listaPrestamos = Array.isArray(data) ? data : Object.values(data);
+                } else {
+                    listaPrestamos = [];
+                }
+                renderizarListaClientes();
+                if (indiceActual !== null && listaPrestamos[indiceActual]) {
+                    abrirDetalle(indiceActual);
+                }
+            });
+        }
 
         function pedirCodigoAcceso() {
             var ingreso = prompt("Ingrese su código de acceso personal:");
             if (ingreso === null) return;
 
             var autorizado = false;
+            esUsuarioAdmin = false;
+
             for (var i = 0; i < listaCodigos.length; i++) {
                 if (listaCodigos[i].codigo === ingreso) {
                     autorizado = true;
+                    if (i === 0 || ingreso === "1234") {
+                        esUsuarioAdmin = true;
+                    }
                     break;
                 }
             }
@@ -205,10 +259,15 @@
             if (autorizado) {
                 document.getElementById('mensaje-bloqueado').style.display = 'none';
                 document.getElementById('app-protegida').style.display = 'block';
-                cargarDatosPrestamos();
-                renderizarListaClientes();
-                renderizarListaCodigos();
-                mostrarMensaje("Acceso autorizado con éxito.", false);
+                
+                var btnBorrarTodo = document.getElementById('btn-borrar-todo');
+                if (esUsuarioAdmin) {
+                    btnBorrarTodo.style.display = 'block';
+                } else {
+                    btnBorrarTodo.style.display = 'none';
+                }
+
+                mostrarMensaje("Acceso autorizado. Rol: " + (esUsuarioAdmin ? "Administrador" : "Cobrador"), false);
             } else {
                 alert("Código de acceso incorrecto.");
                 document.getElementById('mensaje-bloqueado').style.display = 'block';
@@ -226,8 +285,7 @@
             }
 
             listaCodigos.push({ nombre: nombre, codigo: codigo });
-            guardarCodigosEnMemoria();
-            renderizarListaCodigos();
+            db.ref('codigos').set(listaCodigos);
             document.getElementById('nuevo-usuario-nombre').value = "";
             document.getElementById('nuevo-usuario-codigo').value = "";
             mostrarMensaje("¡Código creado correctamente!", false);
@@ -241,7 +299,8 @@
                 var div = document.createElement('div');
                 div.className = 'cliente-item';
                 div.innerHTML = '<span>' + item.nombre + ' (Código: <b>' + item.codigo + '</b>)</span>';
-                if (listaCodigos.length > 1) {
+                
+                if (esUsuarioAdmin && listaCodigos.length > 1 && i !== 0) {
                     var btnEliminar = document.createElement('button');
                     btnEliminar.className = 'btn-rojo';
                     btnEliminar.style.width = '80px';
@@ -258,31 +317,14 @@
         }
 
         function eliminarCodigo(index) {
+            if (!esUsuarioAdmin) {
+                alert("Acción no autorizada.");
+                return;
+            }
             if (confirm("¿Estás seguro de eliminar este código?")) {
                 listaCodigos.splice(index, 1);
-                guardarCodigosEnMemoria();
-                renderizarListaCodigos();
+                db.ref('codigos').set(listaCodigos);
                 mostrarMensaje("Código eliminado.", false);
-            }
-        }
-
-        function guardarCodigosEnMemoria() {
-            try {
-                localStorage.setItem('listaCodigosApp', JSON.stringify(listaCodigos));
-            } catch(e) {}
-        }
-
-        function cargarCodigosGuardados() {
-            try {
-                var datos = localStorage.getItem('listaCodigosApp');
-                if (datos) {
-                    listaCodigos = JSON.parse(datos);
-                } else {
-                    listaCodigos = [ADMIN_INICIAL];
-                    guardarCodigosEnMemoria();
-                }
-            } catch(e) {
-                listaCodigos = [ADMIN_INICIAL];
             }
         }
 
@@ -335,7 +377,6 @@
             }
 
             var codCliente = generarSiguienteCodigoCliente();
-
             var montoInteres = montoVal * (interesVal / 100);
             var montoTotal = montoVal + montoInteres;
             var valorCuota = parseFloat((montoTotal / plazoVal).toFixed(2));
@@ -360,10 +401,9 @@
             };
 
             listaPrestamos.push(nuevoPrestamo);
-            guardarPrestamosEnMemoria();
-            mostrarMensaje("¡Préstamo creado con éxito! Código asignado: " + codCliente, false);
+            db.ref('prestamos').set(listaPrestamos);
+            mostrarMensaje("¡Préstamo guardado! Código: " + codCliente, false);
             irAVista('vista-lista');
-            renderizarListaClientes();
         }
 
         function renderizarListaClientes() {
@@ -424,12 +464,9 @@
                 return;
             }
 
-            var cuotaPendienteIndex = -1;
             var cuotaPendienteObj = null;
-
             for (var j = 0; j < clienteEncontrado.cuotas.length; j++) {
                 if (!clienteEncontrado.cuotas[j].pagado) {
-                    cuotaPendienteIndex = j;
                     cuotaPendienteObj = clienteEncontrado.cuotas[j];
                     break;
                 }
@@ -475,6 +512,14 @@
                 
                 if (cuota.pagado) continue; 
 
+                // Guardamos historial previo en la cuota para permitir corrección exacta
+                cuota.historialPrevio = {
+                    montoPendienteAnterior: cuota.montoPendiente,
+                    pagadoAnterior: cuota.pagado,
+                    parcialAnterior: cuota.parcial,
+                    fechaAnterior: cuota.fechaUltimoPago
+                };
+
                 if (dineroEntregado >= cuota.montoPendiente) {
                     dineroEntregado -= cuota.montoPendiente;
                     cuota.montoPendiente = 0;
@@ -497,11 +542,42 @@
                 }
             }
 
-            guardarPrestamosEnMemoria();
-            mostrarMensaje("¡Pago procesado correctamente! Cuotas afectadas: " + cuotasAfectadas, false);
+            db.ref('prestamos').set(listaPrestamos);
+            mostrarMensaje("¡Pago registrado! Cuotas afectadas: " + cuotasAfectadas, false);
             document.getElementById('input-buscar-codigo').value = "";
             document.getElementById('resultado-busqueda-codigo').innerHTML = "";
             abrirDetalle(indicePrestamo);
+        }
+
+        function corregirUltimoPago() {
+            if (indiceActual === null) return;
+            var prestamo = listaPrestamos[indiceActual];
+
+            if (!confirm("¿Deseas revertir el último movimiento de pago realizado en este préstamo?")) {
+                return;
+            }
+
+            var modificado = false;
+            // Recorremos desde la última cuota hacia la primera para deshacer el cambio más reciente
+            for (var j = prestamo.cuotas.length - 1; j >= 0; j--) {
+                var cuota = prestamo.cuotas[j];
+                if (cuota.historialPrevio) {
+                    cuota.montoPendiente = cuota.historialPrevio.montoPendienteAnterior;
+                    cuota.pagado = cuota.historialPrevio.pagadoAnterior;
+                    cuota.parcial = cuota.historialPrevio.parcialAnterior;
+                    cuota.fechaUltimoPago = cuota.historialPrevio.fechaAnterior;
+                    delete cuota.historialPrevio;
+                    modificado = true;
+                }
+            }
+
+            if (modificado) {
+                db.ref('prestamos').set(listaPrestamos);
+                mostrarMensaje("Se ha revertido el último pago correctamente.", false);
+                abrirDetalle(indiceActual);
+            } else {
+                alert("No hay registros recientes para corregir en este préstamo.");
+            }
         }
 
         function abrirDetalle(index) {
@@ -509,7 +585,16 @@
             var p = listaPrestamos[index];
             var codTexto = p.codigoCliente ? " Código: [" + p.codigoCliente + "]" : "";
             document.getElementById('detalle-titulo').innerText = "Cliente: " + p.concepto + codTexto;
-            document.getElementById('detalle-info').innerText = "Monto Total con Interés: $" + p.montoTotal;
+
+            // Calcular saldo pendiente total actual del cliente
+            var saldoPendienteTotal = 0;
+            for (var k = 0; k < p.cuotas.length; k++) {
+                saldoPendienteTotal += p.cuotas[k].montoPendiente;
+            }
+
+            document.getElementById('detalle-info').innerHTML = 
+                "Monto Total con Interés: $" + p.montoTotal + 
+                "<br><span style='color: #dc3545;'>Saldo Pendiente Actual: $" + saldoPendienteTotal.toFixed(2) + "</span>";
 
             var tbody = document.getElementById('tabla-cuotas-detalle');
             tbody.innerHTML = "";
@@ -539,26 +624,13 @@
             irAVista('vista-detalle');
         }
 
-        function guardarPrestamosEnMemoria() {
-            try {
-                localStorage.setItem('listaPrestamosApp', JSON.stringify(listaPrestamos));
-            } catch(e) {}
-        }
-
-        function cargarDatosPrestamos() {
-            try {
-                var datos = localStorage.getItem('listaPrestamosApp');
-                if (datos) {
-                    listaPrestamos = JSON.parse(datos);
-                }
-            } catch(e) {
-                listaPrestamos = [];
-            }
-        }
-
         function limpiarTodo() {
-            if(confirm("¿Estás seguro de borrar todos los préstamos?")) {
-                localStorage.removeItem('listaPrestamosApp');
+            if (!esUsuarioAdmin) {
+                alert("Acción no autorizada.");
+                return;
+            }
+            if(confirm("¿Estás seguro de borrar todos los préstamos de la nube?")) {
+                db.ref('prestamos').remove();
                 listaPrestamos = [];
                 renderizarListaClientes();
                 mostrarMensaje("Registros borrados.", false);
