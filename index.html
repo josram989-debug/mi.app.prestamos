@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Control de Préstamos V22 - Códigos Únicos</title>
+    <title>Control de Préstamos V23 - Login por Usuario y Código</title>
     <style>
         body { 
             font-family: Arial, sans-serif; 
@@ -88,11 +88,18 @@
         <h2>Control de Préstamos</h2>
         <div id="panel-mensajes"></div>
 
-        <!-- Pantalla de bloqueo de acceso -->
+        <!-- Pantalla de bloqueo de acceso con Usuario y Código -->
         <div id="mensaje-bloqueado" style="text-align: center; padding: 20px;">
             <h3 style="color: #dc3545;">Acceso Restringido</h3>
-            <p>Introduce tu código de acceso personal para ingresar:</p>
-            <button class="btn-azul" onclick="pedirCodigoAcceso()">Ingresar Código</button>
+            <p>Introduce tu nombre de usuario y tu código personal:</p>
+            
+            <label style="text-align: left; display: block;">Nombre de Usuario:</label>
+            <input type="text" id="login-usuario" placeholder="Ej. Administrador Principal">
+
+            <label style="text-align: left; display: block;">Código de Acceso:</label>
+            <input type="password" id="login-codigo" placeholder="Ej. 1234">
+
+            <button class="btn-azul" onclick="verificarLoginCredenciales()">Iniciar Sesión</button>
         </div>
 
         <!-- CONTENIDO DE LA APP -->
@@ -198,7 +205,6 @@
 
         document.addEventListener("DOMContentLoaded", function() {
             cargarDatosLocales();
-            pedirCodigoAcceso();
         });
 
         function cargarDatosLocales() {
@@ -226,18 +232,27 @@
             localStorage.setItem('control_prestamos_datos', JSON.stringify(listaPrestamos));
         }
 
-        function pedirCodigoAcceso() {
-            var ingreso = prompt("Ingrese su código de acceso personal:");
-            if (ingreso === null) return;
+        function verificarLoginCredenciales() {
+            var usuarioInput = document.getElementById('login-usuario').value.trim();
+            var codigoInput = document.getElementById('login-codigo').value.trim();
 
-            var codigoLimpio = ingreso.trim();
+            if (usuarioInput === "" || codigoInput === "") {
+                alert("Por favor, ingresa tanto el nombre de usuario como el código.");
+                return;
+            }
+
             var autorizado = false;
             esUsuarioAdmin = false;
 
             for (var i = 0; i < listaCodigos.length; i++) {
-                if (listaCodigos[i].codigo === codigoLimpio) {
+                // Comparamos ignorando mayúsculas/minúsculas en el nombre y exacto en el código
+                var nombreGuardado = listaCodigos[i].nombre.trim().toLowerCase();
+                var codigoGuardado = listaCodigos[i].codigo.trim();
+
+                if (nombreGuardado === usuarioInput.toLowerCase() && codigoGuardado === codigoInput) {
                     autorizado = true;
-                    if (i === 0 || codigoLimpio === "1234") {
+                    // El índice 0 o el código 1234 se consideran Administrador Principal
+                    if (i === 0 || codigoGuardado === "1234") {
                         esUsuarioAdmin = true;
                     }
                     break;
@@ -255,12 +270,10 @@
                     btnBorrarTodo.style.display = 'none';
                 }
 
-                mostrarMensaje("Acceso autorizado. Rol: " + (esUsuarioAdmin ? "Administrador" : "Cobrador"), false);
+                mostrarMensaje("Bienvenido, " + usuarioInput + ". Rol: " + (esUsuarioAdmin ? "Administrador" : "Cobrador"), false);
                 renderizarListaCodigos();
             } else {
-                alert("Código de acceso incorrecto. Intenta nuevamente.");
-                document.getElementById('mensaje-bloqueado').style.display = 'block';
-                document.getElementById('app-protegida').style.display = 'none';
+                alert("Nombre de usuario o código incorrecto. Verifica tus datos.");
             }
         }
 
@@ -274,9 +287,8 @@
                 return;
             }
 
-            // NUEVA VALIDACIÓN: Verificar si el código ya está registrado por otro usuario
+            // Validar que el código no esté repetido
             for (var i = 0; i < listaCodigos.length; i++) {
-                // Si estamos editando, ignoramos la posición actual para permitir conservar el mismo código si no se cambió
                 if (editIndex !== -1 && i === editIndex) continue;
 
                 if (listaCodigos[i].codigo === codigo) {
@@ -286,11 +298,9 @@
             }
 
             if (editIndex === -1) {
-                // Crear nuevo código
                 listaCodigos.push({ nombre: nombre, codigo: codigo });
                 mostrarMensaje("¡Código creado correctamente!", false);
             } else {
-                // Actualizar código existente
                 listaCodigos[editIndex].nombre = nombre;
                 listaCodigos[editIndex].codigo = codigo;
                 mostrarMensaje("¡Código actualizado correctamente!", false);
