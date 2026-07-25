@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Control de Préstamos V9 - Códigos Individuales</title>
+    <title>Control de Préstamos V10 - Cobro por Código</title>
     <style>
         body { 
             font-family: Arial, sans-serif; 
@@ -79,7 +79,7 @@
         <h2>Control de Préstamos</h2>
         <div id="panel-mensajes"></div>
 
-        <!-- Pantalla de bloqueo si no introduce un código válido -->
+        <!-- Pantalla de bloqueo de acceso -->
         <div id="mensaje-bloqueado" style="text-align: center; padding: 20px;">
             <h3 style="color: #dc3545;">Acceso Restringido</h3>
             <p>Introduce tu código de acceso personal para ingresar:</p>
@@ -89,10 +89,11 @@
         <!-- CONTENIDO DE LA APP -->
         <div id="app-protegida">
             
-            <!-- MENÚ DE NAVEGACIÓN SUPERIOR INTERNO -->
+            <!-- MENÚ DE NAVEGACIÓN SUPERIOR -->
             <div style="display: flex; gap: 5px; margin-bottom: 15px;">
                 <button class="btn-azul" onclick="irAVista('vista-lista')">Clientes</button>
-                <button class="btn-gris" onclick="irAVista('vista-codigos')">Gestionar Códigos</button>
+                <button class="btn-verde" onclick="irAVista('vista-cobro-rapido')">⚡ Cobro por Código</button>
+                <button class="btn-gris" onclick="irAVista('vista-codigos')">Seguridad</button>
             </div>
 
             <!-- SECCIÓN 1: LISTA DE CLIENTES -->
@@ -103,27 +104,41 @@
                 <button class="btn-rojo" onclick="limpiarTodo()" style="margin-top: 20px;">Borrar Todos los Datos de Préstamos</button>
             </div>
 
-            <!-- SECCIÓN 2: GESTIÓN DE CÓDIGOS DE ACCESO (NUEVO) -->
-            <div id="vista-codigos" class="seccion">
-                <h3>Administrar Códigos de Usuarios</h3>
-                <p style="font-size: 14px; color: #555;">Aquí puedes crear códigos diferentes para cada móvil o persona que vaya a usar la app.</p>
+            <!-- SECCIÓN NUEVA: COBRO RÁPIDO POR CÓDIGO DE 4 DÍGITOS -->
+            <div id="vista-cobro-rapido" class="seccion">
+                <h3>Cobro Rápido por Código</h3>
+                <p style="font-size: 14px; color: #555;">Ingresa el código de 4 dígitos del cliente para consultar su cuenta y cobrar la siguiente cuota pendiente:</p>
                 
-                <label>Nombre del Usuario / Dueño del Móvil:</label>
+                <label>Código de Cliente (4 Dígitos):</label>
+                <input type="tel" id="input-buscar-codigo" placeholder="Ej. 1001" maxlength="4">
+                
+                <button class="btn-azul" onclick="buscarClientePorCodigo()">Buscar Cuenta</button>
+
+                <!-- Resultado de la búsqueda rápida -->
+                <div id="resultado-busqueda-codigo" style="margin-top: 15px;"></div>
+            </div>
+
+            <!-- SECCIÓN: GESTIÓN DE CÓDIGOS DE ACCESO DE USUARIOS -->
+            <div id="vista-codigos" class="seccion">
+                <h3>Administrar Códigos de Acceso</h3>
+                <label>Nombre del Usuario:</label>
                 <input type="text" id="nuevo-usuario-nombre" placeholder="Ej. Cobrador Juan">
 
-                <label>Código de Acceso Personal:</label>
+                <label>Código de Acceso:</label>
                 <input type="text" id="nuevo-usuario-codigo" placeholder="Ej. 9876">
                 
-                <button class="btn-verde" onclick="agregarNuevoCodigo()">Crear Código de Acceso</button>
-
-                <h4>Códigos Activos Actuales:</h4>
+                <button class="btn-verde" onclick="agregarNuevoCodigo()">Crear Código</button>
+                <h4>Códigos Activos:</h4>
                 <div id="contenedor-lista-codigos"></div>
             </div>
 
-            <!-- SECCIÓN 3: FORMULARIO NUEVO PRÉSTAMO -->
+            <!-- SECCIÓN: FORMULARIO NUEVO PRÉSTAMO -->
             <div id="vista-formulario" class="seccion">
                 <h3>Nuevo Préstamo</h3>
-                <label>Concepto / Cliente:</label>
+                <label>Código de 4 Dígitos para el Cliente:</label>
+                <input type="tel" id="codigo-cliente" placeholder="Ej. 1001" maxlength="4">
+
+                <label>Concepto / Nombre del Cliente:</label>
                 <input type="text" id="concepto" placeholder="Ej. Maria Ferreira">
 
                 <label>Monto del Préstamo:</label>
@@ -139,7 +154,7 @@
                 <button class="btn-gris" onclick="irAVista('vista-lista')">Cancelar</button>
             </div>
 
-            <!-- SECCIÓN 4: DETALLE DEL CLIENTE SELECCIONADO -->
+            <!-- SECCIÓN: DETALLE DEL CLIENTE SELECCIONADO -->
             <div id="vista-detalle" class="seccion">
                 <button class="btn-gris" onclick="irAVista('vista-lista')">← Volver a la Lista</button>
                 <h3 id="detalle-titulo">Detalle del Préstamo</h3>
@@ -165,8 +180,6 @@
         var listaPrestamos = [];
         var listaCodigos = [];
         var indiceActual = null;
-
-        // Código por defecto inicial para que no te quedes fuera la primera vez
         var ADMIN_INICIAL = { nombre: "Administrador Principal", codigo: "1234" };
 
         document.addEventListener("DOMContentLoaded", function() {
@@ -176,10 +189,8 @@
 
         function pedirCodigoAcceso() {
             var ingreso = prompt("Ingrese su código de acceso personal:");
-            
             if (ingreso === null) return;
 
-            // Verificamos si el código ingresado coincide con alguno de los registrados
             var autorizado = false;
             for (var i = 0; i < listaCodigos.length; i++) {
                 if (listaCodigos[i].codigo === ingreso) {
@@ -207,35 +218,26 @@
             var codigo = document.getElementById('nuevo-usuario-codigo').value.trim();
 
             if (nombre === "" || codigo === "") {
-                mostrarMensaje("Completa el nombre y el código para el nuevo usuario.", true);
+                mostrarMensaje("Completa el nombre y el código.", true);
                 return;
             }
 
             listaCodigos.push({ nombre: nombre, codigo: codigo });
             guardarCodigosEnMemoria();
             renderizarListaCodigos();
-
             document.getElementById('nuevo-usuario-nombre').value = "";
             document.getElementById('nuevo-usuario-codigo').value = "";
-            mostrarMensaje("¡Nuevo código de acceso creado correctamente!", false);
+            mostrarMensaje("¡Código creado correctamente!", false);
         }
 
         function renderizarListaCodigos() {
             var contenedor = document.getElementById('contenedor-lista-codigos');
             contenedor.innerHTML = "";
-
-            if (listaCodigos.length === 0) {
-                contenedor.innerHTML = "<p style='color:#6c757d;'>No hay códigos registrados.</p>";
-                return;
-            }
-
             for (var i = 0; i < listaCodigos.length; i++) {
                 var item = listaCodigos[i];
                 var div = document.createElement('div');
                 div.className = 'cliente-item';
                 div.innerHTML = '<span>' + item.nombre + ' (Código: <b>' + item.codigo + '</b>)</span>';
-                
-                // Evitamos borrar el primer código maestro por seguridad si es el único
                 if (listaCodigos.length > 1) {
                     var btnEliminar = document.createElement('button');
                     btnEliminar.className = 'btn-rojo';
@@ -243,19 +245,17 @@
                     btnEliminar.style.margin = '0';
                     btnEliminar.style.padding = '5px';
                     btnEliminar.innerText = 'Borrar';
-                    // Usamos función autoejecutable para capturar el índice exacto
                     btnEliminar.onclick = (function(index) {
                         return function() { eliminarCodigo(index); };
                     })(i);
                     div.appendChild(btnEliminar);
                 }
-
                 contenedor.appendChild(div);
             }
         }
 
         function eliminarCodigo(index) {
-            if (confirm("¿Estás seguro de eliminar este código de acceso?")) {
+            if (confirm("¿Estás seguro de eliminar este código?")) {
                 listaCodigos.splice(index, 1);
                 guardarCodigosEnMemoria();
                 renderizarListaCodigos();
@@ -266,9 +266,7 @@
         function guardarCodigosEnMemoria() {
             try {
                 localStorage.setItem('listaCodigosApp', JSON.stringify(listaCodigos));
-            } catch(e) {
-                console.log("Error al guardar códigos");
-            }
+            } catch(e) {}
         }
 
         function cargarCodigosGuardados() {
@@ -277,7 +275,6 @@
                 if (datos) {
                     listaCodigos = JSON.parse(datos);
                 } else {
-                    // Si no hay nada guardado, iniciamos con el código por defecto "1234"
                     listaCodigos = [ADMIN_INICIAL];
                     guardarCodigosEnMemoria();
                 }
@@ -299,10 +296,12 @@
             document.getElementById('vista-codigos').classList.remove('activa');
             document.getElementById('vista-formulario').classList.remove('activa');
             document.getElementById('vista-detalle').classList.remove('activa');
+            document.getElementById('vista-cobro-rapido').classList.remove('activa');
             document.getElementById(vistaId).classList.add('activa');
         }
 
         function mostrarFormularioNuevo() {
+            document.getElementById('codigo-cliente').value = '';
             document.getElementById('concepto').value = '';
             document.getElementById('monto').value = '';
             document.getElementById('interes').value = '';
@@ -311,10 +310,16 @@
         }
 
         function guardarNuevoPrestamo() {
+            var codCliente = document.getElementById('codigo-cliente').value.trim();
             var concepto = document.getElementById('concepto').value.trim();
             var montoVal = parseFloat(document.getElementById('monto').value);
             var interesVal = parseFloat(document.getElementById('interes').value);
             var plazoVal = parseInt(document.getElementById('plazo').value);
+
+            if (codCliente.length !== 4 || isNaN(codCliente)) {
+                mostrarMensaje("El código del cliente debe tener exactamente 4 dígitos numéricos.", true);
+                return;
+            }
 
             if (concepto === "" || isNaN(montoVal) || isNaN(interesVal) || isNaN(plazoVal)) {
                 mostrarMensaje("Por favor, completa todos los campos correctamente.", true);
@@ -335,6 +340,7 @@
             }
 
             var nuevoPrestamo = {
+                codigoCliente: codCliente,
                 concepto: concepto,
                 montoTotal: montoTotal.toFixed(2),
                 cuotas: cuotasArray
@@ -360,20 +366,84 @@
                 var p = listaPrestamos[i];
                 var div = document.createElement('div');
                 div.className = 'cliente-item';
-                div.innerHTML = '<span>' + p.concepto + '</span><span>Total: $' + p.montoTotal + ' →</span>';
-                
+                var codTexto = p.codigoCliente ? "[" + p.codigoCliente + "] " : "";
+                div.innerHTML = '<span>' + codTexto + p.concepto + '</span><span>Total: $' + p.montoTotal + ' →</span>';
                 div.onclick = (function(index) {
                     return function() { abrirDetalle(index); };
                 })(i);
-                
                 contenedor.appendChild(div);
             }
+        }
+
+        function buscarClientePorCodigo() {
+            var busqueda = document.getElementById('input-buscar-codigo').value.trim();
+            var contenedorResultado = document.getElementById('resultado-busqueda-codigo');
+            contenedorResultado.innerHTML = "";
+
+            if (busqueda.length !== 4) {
+                contenedorResultado.innerHTML = "<p style='color:red;'>Introduce un código válido de 4 dígitos.</p>";
+                return;
+            }
+
+            var clienteEncontrado = null;
+            var indiceEncontrado = -1;
+
+            for (var i = 0; i < listaPrestamos.length; i++) {
+                if (listaPrestamos[i].codigoCliente === busqueda) {
+                    clienteEncontrado = listaPrestamos[i];
+                    indiceEncontrado = i;
+                    break;
+                }
+            }
+
+            if (!clienteEncontrado) {
+                contenedorResultado.innerHTML = "<p style='color:red;'>No se encontró ningún cliente con el código <b>" + busqueda + "</b>.</p>";
+                return;
+            }
+
+            // Buscar la primera cuota pendiente
+            var cuotaPendienteIndex = -1;
+            var cuotaPendienteObj = null;
+
+            for (var j = 0; j < clienteEncontrado.cuotas.length; j++) {
+                if (!clienteEncontrado.cuotas[j].pagado) {
+                    cuotaPendienteIndex = j;
+                    cuotaPendienteObj = clienteEncontrado.cuotas[j];
+                    break;
+                }
+            }
+
+            var htmlResultado = "<div style='background: #e9ecef; padding: 15px; border-radius: 5px;'>";
+            htmlResultado += "<h4>Cliente: " + clienteEncontrado.concepto + "</h4>";
+
+            if (cuotaPendienteObj) {
+                htmlResultado += "<p style='font-size: 18px; color: #28a745;'>Siguiente cuota a cobrar: <b>Cuota " + cuotaPendienteObj.numero + "</b></p>";
+                htmlResultado += "<p style='font-size: 22px; font-weight: bold;'>Monto a abonar: $" + cuotaPendienteObj.monto + "</p>";
+                htmlResultado += "<button class='btn-verde' onclick='cobrarCuotaRapida(" + indiceEncontrado + ", " + cuotaPendienteIndex + ")'>Confirmar y Cobrar Esta Cuota</button>";
+            } else {
+                htmlResultado += "<p style='color: green; font-weight: bold;'>¡Este cliente ya pagó todas sus cuotas!</p>";
+            }
+
+            htmlResultado += "<button class='btn-gris' onclick='abrirDetalle(" + indiceEncontrado + ")' style='margin-top:10px;'>Ver Cronograma Completo</button>";
+            htmlResultado += "</div>";
+
+            contenedorResultado.innerHTML = htmlResultado;
+        }
+
+        function cobrarCuotaRapida(indicePrestamo, indiceCuota) {
+            listaPrestamos[indicePrestamo].cuotas[indiceCuota].pagado = true;
+            guardarPrestamosEnMemoria();
+            mostrarMensaje("¡Cobro registrado con éxito!", false);
+            document.getElementById('input-buscar-codigo').value = "";
+            document.getElementById('resultado-busqueda-codigo').innerHTML = "";
+            abrirDetalle(indicePrestamo);
         }
 
         function abrirDetalle(index) {
             indiceActual = index;
             var p = listaPrestamos[index];
-            document.getElementById('detalle-titulo').innerText = "Cliente: " + p.concepto;
+            var codTexto = p.codigoCliente ? " Código: " + p.codigoCliente : "";
+            document.getElementById('detalle-titulo').innerText = "Cliente: " + p.concepto + codTexto;
             document.getElementById('detalle-info').innerText = "Monto Total con Interés: $" + p.montoTotal;
 
             var tbody = document.getElementById('tabla-cuotas-detalle');
@@ -403,16 +473,14 @@
         function marcarCuota(cuotaIndex) {
             listaPrestamos[indiceActual].cuotas[cuotaIndex].pagado = true;
             guardarPrestamosEnMemoria();
-            abrirDetaleSeguro = abrirDetalle(indiceActual);
+            abrirDetalle(indiceActual);
             mostrarMensaje("Cuota marcada como cobrada.", false);
         }
 
         function guardarPrestamosEnMemoria() {
             try {
                 localStorage.setItem('listaPrestamosApp', JSON.stringify(listaPrestamos));
-            } catch(e) {
-                console.log("Error al guardar préstamos");
-            }
+            } catch(e) {}
         }
 
         function cargarDatosPrestamos() {
@@ -427,13 +495,13 @@
         }
 
         function limpiarTodo() {
-            if(confirm("¿Estás seguro de que deseas borrar todos los registros de préstamos?")) {
+            if(confirm("¿Estás seguro de borrar todos los préstamos?")) {
                 localStorage.removeItem('listaPrestamosApp');
                 listaPrestamos = [];
                 renderizarListaClientes();
-                mostrarMensaje("Todos los préstamos fueron borrados.", false);
+                mostrarMensaje("Registros borrados.", false);
             }
         }
     </script>
 </body>
-    </html>
+</html>
