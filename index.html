@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Control de Préstamos V21 - Edición de Códigos</title>
+    <title>Control de Préstamos V22 - Códigos Únicos</title>
     <style>
         body { 
             font-family: Arial, sans-serif; 
@@ -274,6 +274,17 @@
                 return;
             }
 
+            // NUEVA VALIDACIÓN: Verificar si el código ya está registrado por otro usuario
+            for (var i = 0; i < listaCodigos.length; i++) {
+                // Si estamos editando, ignoramos la posición actual para permitir conservar el mismo código si no se cambió
+                if (editIndex !== -1 && i === editIndex) continue;
+
+                if (listaCodigos[i].codigo === codigo) {
+                    mostrarMensaje("El código '" + codigo + "' ya le pertenece a '" + listaCodigos[i].nombre + "'. Elige otro diferente.", true);
+                    return;
+                }
+            }
+
             if (editIndex === -1) {
                 // Crear nuevo código
                 listaCodigos.push({ nombre: nombre, codigo: codigo });
@@ -325,7 +336,6 @@
                 contenedorAcciones.style.display = 'flex';
                 contenedorAcciones.style.gap = '5px';
 
-                // Botón de modificar (disponible para admin o según requerimiento)
                 if (esUsuarioAdmin) {
                     var btnEditar = document.createElement('button');
                     btnEditar.className = 'btn-amarillo';
