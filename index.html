@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Control de Préstamos V4</title>
+    <title>Control de Préstamos V5</title>
     <style>
         body { 
             font-family: Arial, sans-serif; 
@@ -26,12 +26,13 @@
             font-size: 16px;
         }
         #btn-generar {
-            background-color: #007BFF; /* Volvemos al azul profesional */
+            background-color: #007BFF;
             color: white;
             border: none;
             cursor: pointer;
             font-weight: bold;
             border-radius: 5px;
+            padding: 15px; /* Botón un poco más alto para móviles */
         }
         #btn-generar:hover { background-color: #0056b3; }
         
@@ -44,14 +45,13 @@
             border-radius: 5px;
         }
         
-        /* Nuevo: Estilo para el panel de mensajes en pantalla */
         #panel-mensajes {
             padding: 10px;
             margin-bottom: 15px;
             border-radius: 5px;
             text-align: center;
             font-weight: bold;
-            display: none; /* Oculto por defecto */
+            display: none; 
         }
         
         table { 
@@ -87,25 +87,33 @@
 </head>
 <body>
 
+    <!-- Si el navegador tiene bloqueado el código, esto se mostrará -->
+    <noscript>
+        <div style="background-color: red; color: white; padding: 15px; font-weight: bold; text-align: center; border-radius: 5px; margin-bottom: 15px;">
+            ATENCIÓN: Tu navegador móvil está bloqueando JavaScript. Por favor, activa JavaScript en la configuración de tu navegador.
+        </div>
+    </noscript>
+
     <div class="contenedor">
-        <h2>Registrar Nuevo Préstamo</h2>
+        <!-- Le pusimos un ID al título para poder modificarlo con código -->
+        <h2 id="titulo-principal">Registrar Nuevo Préstamo</h2>
         
-        <!-- Aquí aparecerán los mensajes de éxito o error -->
         <div id="panel-mensajes"></div>
         
         <label>Concepto / Cliente:</label>
         <input type="text" id="concepto" placeholder="Ej. Maria Ferreira">
 
+        <!-- Volvemos a type="tel" para evitar bugs de teclado en móviles -->
         <label>Monto del Préstamo:</label>
-        <input type="number" id="monto" placeholder="Ej. 1000000">
+        <input type="tel" id="monto" placeholder="Ej. 1000000">
         
         <label>Interés Total (%):</label>
-        <input type="number" id="interes" placeholder="Ej. 32">
+        <input type="tel" id="interes" placeholder="Ej. 32">
         
         <label>Plazo (cantidad de cuotas):</label>
-        <input type="number" id="plazo" placeholder="Ej. 44">
+        <input type="tel" id="plazo" placeholder="Ej. 44">
         
-        <button id="btn-generar" onclick="generarPrestamo()">Generar Cuotas (V4)</button>
+        <button id="btn-generar" onclick="generarPrestamo()">Generar Cuotas (V5)</button>
         <button id="btn-borrar" onclick="limpiarTodo()">Borrar Todos los Datos</button>
 
         <h3>Cronograma de Pagos</h3>
@@ -124,59 +132,71 @@
     </div>
 
     <script>
-        // Función auxiliar para mostrar mensajes en la pantalla en lugar de usar alert()
+        // --- PRUEBA DE VIDA INMEDIATA ---
+        // Este código se ejecuta apenas el navegador lee esta línea. 
+        // Si no ves el título verde en tu celular, el celular está apagando el código.
+        const titulo = document.getElementById('titulo-principal');
+        if (titulo) {
+            titulo.innerText = "Sistema Activo V5";
+            titulo.style.color = "green";
+        }
+
         function mostrarMensaje(texto, esError) {
             const panel = document.getElementById('panel-mensajes');
-            panel.style.display = 'block'; // Lo hacemos visible
+            panel.style.display = 'block'; 
             panel.innerText = texto;
             
             if (esError) {
-                panel.style.backgroundColor = '#f8d7da'; // Fondo rojo claro
-                panel.style.color = '#721c24'; // Texto rojo oscuro
+                panel.style.backgroundColor = '#f8d7da'; 
+                panel.style.color = '#721c24'; 
             } else {
-                panel.style.backgroundColor = '#d4edda'; // Fondo verde claro
-                panel.style.color = '#155724'; // Texto verde oscuro
+                panel.style.backgroundColor = '#d4edda'; 
+                panel.style.color = '#155724'; 
             }
         }
 
-        window.onload = function() {
+        // Usamos una forma más segura de cargar los datos iniciales
+        document.addEventListener("DOMContentLoaded", function() {
             cargarDatosGuardados();
-            mostrarMensaje("Sistema iniciado correctamente.", false);
-        };
+            mostrarMensaje("Memoria lista para usar.", false);
+        });
 
         function generarPrestamo() {
             try {
-                // 1. Obtener valores y limpiar espacios
-                const conceptoValor = document.getElementById('concepto').value.trim();
-                const montoValor = document.getElementById('monto').value.trim();
-                const interesValor = document.getElementById('interes').value.trim();
-                const plazoValor = document.getElementById('plazo').value.trim();
+                // Obtenemos los valores de forma súper segura
+                const inputConcepto = document.getElementById('concepto').value || "";
+                const inputMonto = document.getElementById('monto').value || "";
+                const inputInteres = document.getElementById('interes').value || "";
+                const inputPlazo = document.getElementById('plazo').value || "";
 
-                // 2. Validaciones que ahora usan el panel de mensajes
+                const conceptoValor = inputConcepto.trim();
+                const montoValor = inputMonto.trim();
+                const interesValor = inputInteres.trim();
+                const plazoValor = inputPlazo.trim();
+
                 if (conceptoValor === "") {
-                    mostrarMensaje("Falta el nombre del cliente.", true);
+                    mostrarMensaje("Error: Escribe un nombre o concepto.", true);
                     return;
                 }
                 
                 const monto = parseFloat(montoValor);
                 if (isNaN(monto) || monto <= 0) {
-                    mostrarMensaje("Revisa el monto ingresado.", true);
+                    mostrarMensaje("Error: El monto no es un número válido.", true);
                     return;
                 }
                 
                 const interes = parseFloat(interesValor);
                 if (isNaN(interes) || interes < 0) {
-                    mostrarMensaje("Revisa el porcentaje de interés.", true);
+                    mostrarMensaje("Error: El interés no es válido.", true);
                     return;
                 }
                 
                 const plazo = parseInt(plazoValor);
                 if (isNaN(plazo) || plazo <= 0) {
-                    mostrarMensaje("Revisa el plazo de cuotas.", true);
+                    mostrarMensaje("Error: El plazo no es válido.", true);
                     return;
                 }
 
-                // 3. Cálculos
                 const montoInteres = monto * (interes / 100);
                 const montoTotal = monto + montoInteres;
                 const valorCuota = (montoTotal / plazo).toFixed(2); 
@@ -187,7 +207,6 @@
                 filaTitulo.innerHTML = <td colspan="4" class="separador">Préstamo: ${conceptoValor} - Total: $${montoTotal.toFixed(2)}</td>;
                 cuerpoTabla.appendChild(filaTitulo);
 
-                // 4. Generar las filas
                 for (let i = 1; i <= plazo; i++) {
                     const fila = document.createElement('tr');
                     fila.innerHTML = `
@@ -199,7 +218,6 @@
                     cuerpoTabla.appendChild(fila);
                 }
 
-                // 5. Guardar y limpiar
                 guardarDatosEnMemoria();
                 
                 document.getElementById('concepto').value = '';
@@ -207,11 +225,10 @@
                 document.getElementById('interes').value = '';
                 document.getElementById('plazo').value = '';
 
-                // Mostrar mensaje de éxito en pantalla
-                mostrarMensaje("¡Cuotas generadas con éxito!", false);
+                mostrarMensaje("¡Cuotas creadas correctamente!", false);
 
             } catch (error) {
-                mostrarMensaje("Error interno: " + error.message, true);
+                mostrarMensaje("Fallo en el sistema: " + error.message, true);
             }
         }
 
@@ -224,15 +241,19 @@
                 boton.innerText = "Cobrado";
                 boton.style.backgroundColor = "gray"; 
                 guardarDatosEnMemoria();
-                mostrarMensaje("Cuota marcada como cobrada.", false);
+                mostrarMensaje("Pago registrado.", false);
             } catch(error) {
-                mostrarMensaje("Error al cobrar: " + error.message, true);
+                mostrarMensaje("Error: " + error.message, true);
             }
         }
 
         function guardarDatosEnMemoria() {
-            const cuerpoTabla = document.getElementById('listaCuotas');
-            localStorage.setItem('memoriaPrestamos', cuerpoTabla.innerHTML);
+            try {
+                const cuerpoTabla = document.getElementById('listaCuotas');
+                localStorage.setItem('memoriaPrestamos', cuerpoTabla.innerHTML);
+            } catch(e) {
+                console.log("No se pudo guardar la memoria");
+            }
         }
 
         function cargarDatosGuardados() {
@@ -242,15 +263,19 @@
                     document.getElementById('listaCuotas').innerHTML = datosGuardados;
                 }
             } catch(e) {
-                mostrarMensaje("El navegador bloqueó la memoria.", true);
+                mostrarMensaje("Aviso: Memoria bloqueada por el navegador.", true);
             }
         }
 
         function limpiarTodo() {
             if(confirm("¿Estás seguro de que quieres borrar todo el historial?")) {
-                localStorage.removeItem('memoriaPrestamos'); 
-                document.getElementById('listaCuotas').innerHTML = ""; 
-                mostrarMensaje("Datos borrados correctamente.", false);
+                try {
+                    localStorage.removeItem('memoriaPrestamos'); 
+                    document.getElementById('listaCuotas').innerHTML = ""; 
+                    mostrarMensaje("Tabla borrada limpia.", false);
+                } catch(e) {
+                    mostrarMensaje("No se pudo borrar la memoria.", true);
+                }
             }
         }
     </script>
