@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Control de Préstamos V7.1</title>
+    <title>Control de Préstamos V9 - Códigos Individuales</title>
     <style>
         body { 
             font-family: Arial, sans-serif; 
@@ -69,6 +69,8 @@
         .cliente-item:hover { background-color: #dde2e6; }
         .seccion { display: none; }
         .activa { display: block; }
+        
+        #app-protegida { display: none; }
     </style>
 </head>
 <body>
@@ -77,63 +79,212 @@
         <h2>Control de Préstamos</h2>
         <div id="panel-mensajes"></div>
 
-        <!-- SECCIÓN 1: LISTA DE CLIENTES -->
-        <div id="vista-lista" class="seccion activa">
-            <button class="btn-azul" onclick="mostrarFormularioNuevo()">+ Registrar Nuevo Préstamo</button>
-            <h3>Lista de Clientes</h3>
-            <div id="contenedor-clientes"></div>
-            <button class="btn-rojo" onclick="limpiarTodo()" style="margin-top: 20px;">Borrar Todos los Datos</button>
+        <!-- Pantalla de bloqueo si no introduce un código válido -->
+        <div id="mensaje-bloqueado" style="text-align: center; padding: 20px;">
+            <h3 style="color: #dc3545;">Acceso Restringido</h3>
+            <p>Introduce tu código de acceso personal para ingresar:</p>
+            <button class="btn-azul" onclick="pedirCodigoAcceso()">Ingresar Código</button>
         </div>
 
-        <!-- SECCIÓN 2: FORMULARIO NUEVO PRÉSTAMO -->
-        <div id="vista-formulario" class="seccion">
-            <h3>Nuevo Préstamo</h3>
-            <label>Concepto / Cliente:</label>
-            <input type="text" id="concepto" placeholder="Ej. Maria Ferreira">
+        <!-- CONTENIDO DE LA APP -->
+        <div id="app-protegida">
+            
+            <!-- MENÚ DE NAVEGACIÓN SUPERIOR INTERNO -->
+            <div style="display: flex; gap: 5px; margin-bottom: 15px;">
+                <button class="btn-azul" onclick="irAVista('vista-lista')">Clientes</button>
+                <button class="btn-gris" onclick="irAVista('vista-codigos')">Gestionar Códigos</button>
+            </div>
 
-            <label>Monto del Préstamo:</label>
-            <input type="tel" id="monto" placeholder="Ej. 1000000">
-            
-            <label>Interés Total (%):</label>
-            <input type="tel" id="interes" placeholder="Ej. 32">
-            
-            <label>Plazo (cantidad de cuotas):</label>
-            <input type="tel" id="plazo" placeholder="Ej. 44">
-            
-            <button class="btn-verde" onclick="guardarNuevoPrestamo()">Guardar y Generar Cuotas</button>
-            <button class="btn-gris" onclick="volverALista()">Cancelar</button>
-        </div>
+            <!-- SECCIÓN 1: LISTA DE CLIENTES -->
+            <div id="vista-lista" class="seccion activa">
+                <button class="btn-azul" onclick="mostrarFormularioNuevo()">+ Registrar Nuevo Préstamo</button>
+                <h3>Lista de Clientes</h3>
+                <div id="contenedor-clientes"></div>
+                <button class="btn-rojo" onclick="limpiarTodo()" style="margin-top: 20px;">Borrar Todos los Datos de Préstamos</button>
+            </div>
 
-        <!-- SECCIÓN 3: DETALLE DEL CLIENTE SELECCIONADO -->
-        <div id="vista-detalle" class="seccion">
-            <button class="btn-gris" onclick="volverALista()">← Volver a la Lista</button>
-            <h3 id="detalle-titulo">Detalle del Préstamo</h3>
-            <div id="detalle-info" style="margin-bottom: 10px; font-weight: bold;"></div>
-            
-            <table>
-                <thead>
-                    <tr>
-                        <th>Detalle</th>
-                        <th>Monto</th>
-                        <th>Estado</th>
-                        <th>Acción</th>
-                    </tr>
-                </thead>
-                <tbody id="tabla-cuotas-detalle">
-                </tbody>
-            </table>
+            <!-- SECCIÓN 2: GESTIÓN DE CÓDIGOS DE ACCESO (NUEVO) -->
+            <div id="vista-codigos" class="seccion">
+                <h3>Administrar Códigos de Usuarios</h3>
+                <p style="font-size: 14px; color: #555;">Aquí puedes crear códigos diferentes para cada móvil o persona que vaya a usar la app.</p>
+                
+                <label>Nombre del Usuario / Dueño del Móvil:</label>
+                <input type="text" id="nuevo-usuario-nombre" placeholder="Ej. Cobrador Juan">
+
+                <label>Código de Acceso Personal:</label>
+                <input type="text" id="nuevo-usuario-codigo" placeholder="Ej. 9876">
+                
+                <button class="btn-verde" onclick="agregarNuevoCodigo()">Crear Código de Acceso</button>
+
+                <h4>Códigos Activos Actuales:</h4>
+                <div id="contenedor-lista-codigos"></div>
+            </div>
+
+            <!-- SECCIÓN 3: FORMULARIO NUEVO PRÉSTAMO -->
+            <div id="vista-formulario" class="seccion">
+                <h3>Nuevo Préstamo</h3>
+                <label>Concepto / Cliente:</label>
+                <input type="text" id="concepto" placeholder="Ej. Maria Ferreira">
+
+                <label>Monto del Préstamo:</label>
+                <input type="tel" id="monto" placeholder="Ej. 1000000">
+                
+                <label>Interés Total (%):</label>
+                <input type="tel" id="interes" placeholder="Ej. 32">
+                
+                <label>Plazo (cantidad de cuotas):</label>
+                <input type="tel" id="plazo" placeholder="Ej. 44">
+                
+                <button class="btn-verde" onclick="guardarNuevoPrestamo()">Guardar y Generar Cuotas</button>
+                <button class="btn-gris" onclick="irAVista('vista-lista')">Cancelar</button>
+            </div>
+
+            <!-- SECCIÓN 4: DETALLE DEL CLIENTE SELECCIONADO -->
+            <div id="vista-detalle" class="seccion">
+                <button class="btn-gris" onclick="irAVista('vista-lista')">← Volver a la Lista</button>
+                <h3 id="detalle-titulo">Detalle del Préstamo</h3>
+                <div id="detalle-info" style="margin-bottom: 10px; font-weight: bold;"></div>
+                
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Detalle</th>
+                            <th>Monto</th>
+                            <th>Estado</th>
+                            <th>Acción</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tabla-cuotas-detalle">
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 
     <script>
         var listaPrestamos = [];
+        var listaCodigos = [];
         var indiceActual = null;
 
+        // Código por defecto inicial para que no te quedes fuera la primera vez
+        var ADMIN_INICIAL = { nombre: "Administrador Principal", codigo: "1234" };
+
         document.addEventListener("DOMContentLoaded", function() {
-            cargarDatos();
-            renderizarListaClientes();
-            mostrarMensaje("Sistema listo.", false);
+            cargarCodigosGuardados();
+            pedirCodigoAcceso();
         });
+
+        function pedirCodigoAcceso() {
+            var ingreso = prompt("Ingrese su código de acceso personal:");
+            
+            if (ingreso === null) return;
+
+            // Verificamos si el código ingresado coincide con alguno de los registrados
+            var autorizado = false;
+            for (var i = 0; i < listaCodigos.length; i++) {
+                if (listaCodigos[i].codigo === ingreso) {
+                    autorizado = true;
+                    break;
+                }
+            }
+
+            if (autorizado) {
+                document.getElementById('mensaje-bloqueado').style.display = 'none';
+                document.getElementById('app-protegida').style.display = 'block';
+                cargarDatosPrestamos();
+                renderizarListaClientes();
+                renderizarListaCodigos();
+                mostrarMensaje("Acceso autorizado con éxito.", false);
+            } else {
+                alert("Código de acceso incorrecto.");
+                document.getElementById('mensaje-bloqueado').style.display = 'block';
+                document.getElementById('app-protegida').style.display = 'none';
+            }
+        }
+
+        function agregarNuevoCodigo() {
+            var nombre = document.getElementById('nuevo-usuario-nombre').value.trim();
+            var codigo = document.getElementById('nuevo-usuario-codigo').value.trim();
+
+            if (nombre === "" || codigo === "") {
+                mostrarMensaje("Completa el nombre y el código para el nuevo usuario.", true);
+                return;
+            }
+
+            listaCodigos.push({ nombre: nombre, codigo: codigo });
+            guardarCodigosEnMemoria();
+            renderizarListaCodigos();
+
+            document.getElementById('nuevo-usuario-nombre').value = "";
+            document.getElementById('nuevo-usuario-codigo').value = "";
+            mostrarMensaje("¡Nuevo código de acceso creado correctamente!", false);
+        }
+
+        function renderizarListaCodigos() {
+            var contenedor = document.getElementById('contenedor-lista-codigos');
+            contenedor.innerHTML = "";
+
+            if (listaCodigos.length === 0) {
+                contenedor.innerHTML = "<p style='color:#6c757d;'>No hay códigos registrados.</p>";
+                return;
+            }
+
+            for (var i = 0; i < listaCodigos.length; i++) {
+                var item = listaCodigos[i];
+                var div = document.createElement('div');
+                div.className = 'cliente-item';
+                div.innerHTML = '<span>' + item.nombre + ' (Código: <b>' + item.codigo + '</b>)</span>';
+                
+                // Evitamos borrar el primer código maestro por seguridad si es el único
+                if (listaCodigos.length > 1) {
+                    var btnEliminar = document.createElement('button');
+                    btnEliminar.className = 'btn-rojo';
+                    btnEliminar.style.width = '80px';
+                    btnEliminar.style.margin = '0';
+                    btnEliminar.style.padding = '5px';
+                    btnEliminar.innerText = 'Borrar';
+                    // Usamos función autoejecutable para capturar el índice exacto
+                    btnEliminar.onclick = (function(index) {
+                        return function() { eliminarCodigo(index); };
+                    })(i);
+                    div.appendChild(btnEliminar);
+                }
+
+                contenedor.appendChild(div);
+            }
+        }
+
+        function eliminarCodigo(index) {
+            if (confirm("¿Estás seguro de eliminar este código de acceso?")) {
+                listaCodigos.splice(index, 1);
+                guardarCodigosEnMemoria();
+                renderizarListaCodigos();
+                mostrarMensaje("Código eliminado.", false);
+            }
+        }
+
+        function guardarCodigosEnMemoria() {
+            try {
+                localStorage.setItem('listaCodigosApp', JSON.stringify(listaCodigos));
+            } catch(e) {
+                console.log("Error al guardar códigos");
+            }
+        }
+
+        function cargarCodigosGuardados() {
+            try {
+                var datos = localStorage.getItem('listaCodigosApp');
+                if (datos) {
+                    listaCodigos = JSON.parse(datos);
+                } else {
+                    // Si no hay nada guardado, iniciamos con el código por defecto "1234"
+                    listaCodigos = [ADMIN_INICIAL];
+                    guardarCodigosEnMemoria();
+                }
+            } catch(e) {
+                listaCodigos = [ADMIN_INICIAL];
+            }
+        }
 
         function mostrarMensaje(texto, esError) {
             var panel = document.getElementById('panel-mensajes');
@@ -143,8 +294,9 @@
             panel.style.color = esError ? '#721c24' : '#155724';
         }
 
-        function cambiarVista(vistaId) {
+        function irAVista(vistaId) {
             document.getElementById('vista-lista').classList.remove('activa');
+            document.getElementById('vista-codigos').classList.remove('activa');
             document.getElementById('vista-formulario').classList.remove('activa');
             document.getElementById('vista-detalle').classList.remove('activa');
             document.getElementById(vistaId).classList.add('activa');
@@ -155,12 +307,7 @@
             document.getElementById('monto').value = '';
             document.getElementById('interes').value = '';
             document.getElementById('plazo').value = '';
-            cambiarVista('vista-formulario');
-        }
-
-        function volverALista() {
-            renderizarListaClientes();
-            cambiarVista('vista-lista');
+            irAVista('vista-formulario');
         }
 
         function guardarNuevoPrestamo() {
@@ -194,9 +341,10 @@
             };
 
             listaPrestamos.push(nuevoPrestamo);
-            guardarEnMemoria();
+            guardarPrestamosEnMemoria();
             mostrarMensaje("¡Préstamo creado con éxito!", false);
-            volverALista();
+            irAVista('vista-lista');
+            renderizarListaClientes();
         }
 
         function renderizarListaClientes() {
@@ -249,25 +397,25 @@
                 tbody.appendChild(tr);
             }
 
-            cambiarVista('vista-detalle');
+            irAVista('vista-detalle');
         }
 
         function marcarCuota(cuotaIndex) {
             listaPrestamos[indiceActual].cuotas[cuotaIndex].pagado = true;
-            guardarEnMemoria();
-            abrirDetalle(indiceActual);
+            guardarPrestamosEnMemoria();
+            abrirDetaleSeguro = abrirDetalle(indiceActual);
             mostrarMensaje("Cuota marcada como cobrada.", false);
         }
 
-        function guardarEnMemoria() {
+        function guardarPrestamosEnMemoria() {
             try {
                 localStorage.setItem('listaPrestamosApp', JSON.stringify(listaPrestamos));
             } catch(e) {
-                console.log("Error al guardar memoria");
+                console.log("Error al guardar préstamos");
             }
         }
 
-        function cargarDatos() {
+        function cargarDatosPrestamos() {
             try {
                 var datos = localStorage.getItem('listaPrestamosApp');
                 if (datos) {
@@ -279,13 +427,13 @@
         }
 
         function limpiarTodo() {
-            if(confirm("¿Estás seguro de que deseas borrar todos los clientes y registros?")) {
+            if(confirm("¿Estás seguro de que deseas borrar todos los registros de préstamos?")) {
                 localStorage.removeItem('listaPrestamosApp');
                 listaPrestamos = [];
                 renderizarListaClientes();
-                mostrarMensaje("Todos los datos fueron borrados.", false);
+                mostrarMensaje("Todos los préstamos fueron borrados.", false);
             }
         }
     </script>
 </body>
-</html>
+    </html>
