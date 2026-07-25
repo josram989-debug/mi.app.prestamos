@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Control de Préstamos V6</title>
+    <title>Control de Préstamos V7</title>
     <style>
         body { 
             font-family: Arial, sans-serif; 
@@ -25,25 +25,10 @@
             box-sizing: border-box;
             font-size: 16px;
         }
-        #btn-generar {
-            background-color: #007BFF;
-            color: white;
-            border: none;
-            cursor: pointer;
-            font-weight: bold;
-            border-radius: 5px;
-            padding: 15px; 
-        }
-        #btn-generar:hover { background-color: #0056b3; }
-        
-        #btn-borrar {
-            background-color: #dc3545; 
-            color: white;
-            border: none;
-            cursor: pointer;
-            font-weight: bold;
-            border-radius: 5px;
-        }
+        .btn-azul { background-color: #007BFF; color: white; border: none; font-weight: bold; border-radius: 5px; cursor: pointer; }
+        .btn-verde { background-color: #28a745; color: white; border: none; font-weight: bold; border-radius: 5px; cursor: pointer; }
+        .btn-rojo { background-color: #dc3545; color: white; border: none; font-weight: bold; border-radius: 5px; cursor: pointer; }
+        .btn-gris { background-color: #6c757d; color: white; border: none; font-weight: bold; border-radius: 5px; cursor: pointer; }
         
         #panel-mensajes {
             padding: 10px;
@@ -70,222 +55,238 @@
             color: #155724;
             text-decoration: line-through; 
         }
-        .boton-cobrar {
-            padding: 8px 5px; 
-            font-size: 14px;
-            margin: 0;
-            background-color: #28a745; 
-            color: white;
-            border: none;
-            border-radius: 3px;
-        }
-        .separador {
-            background-color: #e9ecef;
+        .cliente-item {
+            background: #e9ecef;
+            padding: 12px;
+            margin-bottom: 10px;
+            border-radius: 5px;
+            cursor: pointer;
             font-weight: bold;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
+        .cliente-item:hover { background-color: #dde2e6; }
+        .seccion { display: none; }
+        .activa { display: block; }
     </style>
 </head>
 <body>
 
     <div class="contenedor">
-        <h2 id="titulo-principal">Registrar Nuevo Préstamo</h2>
-        
-        <!-- Panel para mostrar errores ocultos del navegador -->
+        <h2>Control de Préstamos</h2>
         <div id="panel-mensajes"></div>
-        
-        <label>Concepto / Cliente:</label>
-        <input type="text" id="concepto" placeholder="Ej. Maria Ferreira">
 
-        <label>Monto del Préstamo:</label>
-        <input type="tel" id="monto" placeholder="Ej. 1000000">
-        
-        <label>Interés Total (%):</label>
-        <input type="tel" id="interes" placeholder="Ej. 32">
-        
-        <label>Plazo (cantidad de cuotas):</label>
-        <input type="tel" id="plazo" placeholder="Ej. 44">
-        
-        <!-- Ya no usamos onclick aquí -->
-        <button id="btn-generar">Generar Cuotas (V6)</button>
-        <button id="btn-borrar">Borrar Todos los Datos</button>
+        <!-- SECCIÓN 1: LISTA DE CLIENTES -->
+        <div id="vista-lista" class="seccion activa">
+            <button class="btn-azul" onclick="mostrarFormularioNuevo()">+ Registrar Nuevo Préstamo</button>
+            <h3>Lista de Clientes</h3>
+            <div id="contenedor-clientes">
+                <!-- Aquí se cargarán los clientes guardados -->
+            </div>
+            <button class="btn-rojo" onclick="limpiarTodo()" style="margin-top: 20px;">Borrar Todos los Datos</button>
+        </div>
 
-        <h3>Cronograma de Pagos</h3>
-        <table>
-            <thead>
-                <tr>
-                    <th>Detalle</th>
-                    <th>Monto</th>
-                    <th>Estado</th>
-                    <th>Acción</th>
-                </tr>
-            </thead>
-            <tbody id="listaCuotas">
-            </tbody>
-        </table>
+        <!-- SECCIÓN 2: FORMULARIO NUEVO PRÉSTAMO -->
+        <div id="vista-formulario" class="seccion">
+            <h3>Nuevo Préstamo</h3>
+            <label>Concepto / Cliente:</label>
+            <input type="text" id="concepto" placeholder="Ej. Maria Ferreira">
+
+            <label>Monto del Préstamo:</label>
+            <input type="tel" id="monto" placeholder="Ej. 1000000">
+            
+            <label>Interés Total (%):</label>
+            <input type="tel" id="interes" placeholder="Ej. 32">
+            
+            <label>Plazo (cantidad de cuotas):</label>
+            <input type="tel" id="plazo" placeholder="Ej. 44">
+            
+            <button class="btn-verde" onclick="guardarNuevoPrestamo()">Guardar y Generar Cuotas</button>
+            <button class="btn-gris" onclick="volverA-Lista()">Cancelar</button>
+        </div>
+
+        <!-- SECCIÓN 3: DETALLE DEL CLIENTE SELECCIONADO -->
+        <div id="vista-detalle" class="seccion">
+            <button class="btn-gris" onclick="volverA-Lista()">← Volver a la Lista</button>
+            <h3 id="detalle-titulo">Detalle del Préstamo</h3>
+            <div id="detalle-info" style="margin-bottom: 10px; font-weight: bold;"></div>
+            
+            <table>
+                <thead>
+                    <tr>
+                        <th>Detalle</th>
+                        <th>Monto</th>
+                        <th>Estado</th>
+                        <th>Acción</th>
+                    </tr>
+                </thead>
+                <tbody id="tabla-cuotas-detalle">
+                </tbody>
+            </table>
+        </div>
     </div>
 
-    <!-- EL CÓDIGO JAVASCRIPT -->
     <script>
-        // 1. MANEJADOR GLOBAL DE ERRORES: Captura cualquier falla silenciosa
-        window.onerror = function(mensaje, origen, linea) {
-            var panel = document.getElementById('panel-mensajes');
-            if (panel) {
-                panel.style.display = 'block';
-                panel.style.backgroundColor = '#f8d7da';
-                panel.style.color = '#721c24';
-                panel.innerHTML = "<strong>Error en móvil:</strong> " + mensaje + " (Línea " + linea + ")";
-            }
-            return true;
-        };
+        var listaPrestamos = [];
+        var indiceActual = null;
 
-        // 2. PRUEBA DE VIDA Y CAMBIO VISUAL
-        var titulo = document.getElementById('titulo-principal');
-        if (titulo) {
-            titulo.innerText = "Sistema V6 Conectado";
-            titulo.style.color = "#007BFF"; // Azul
-        }
+        // Cargar datos al iniciar
+        document.addEventListener("DOMContentLoaded", function() {
+            cargarDatos();
+            renderizarListaClientes();
+        });
 
-        // 3. FUNCIONES DEL SISTEMA
         function mostrarMensaje(texto, esError) {
             var panel = document.getElementById('panel-mensajes');
             panel.style.display = 'block'; 
             panel.innerText = texto;
-            
-            if (esError) {
-                panel.style.backgroundColor = '#f8d7da'; 
-                panel.style.color = '#721c24'; 
-            } else {
-                panel.style.backgroundColor = '#d4edda'; 
-                panel.style.color = '#155724'; 
+            panel.style.backgroundColor = esError ? '#f8d7da' : '#d4edda';
+            panel.style.color = esError ? '#721c24' : '#155724';
+        }
+
+        function cambiarVista(vistaId) {
+            document.getElementById('vista-lista').classList.remove('activa');
+            document.getElementById('vista-formulario').classList.remove('activa');
+            document.getElementById('vista-detalle').classList.remove('activa');
+            document.getElementById(vistaId).classList.add('activa');
+        }
+
+        function mostrarFormularioNuevo() {
+            document.getElementById('concepto').value = '';
+            document.getElementById('monto').value = '';
+            document.getElementById('interes').value = '';
+            document.getElementById('plazo').value = '';
+            cambiarVista('vista-formulario');
+        }
+
+        function volverA-Lista() {
+            renderizarListaClientes();
+            cambiarVista('vista-lista');
+        }
+
+        function guardarNuevoPrestamo() {
+            var concepto = document.getElementById('concepto').value.trim();
+            var montoVal = parseFloat(document.getElementById('monto').value);
+            var interesVal = parseFloat(document.getElementById('interes').value);
+            var plazoVal = parseInt(document.getElementById('plazo').value);
+
+            if (concepto === "" || isNaN(montoVal) || isNaN(interesVal) || isNaN(plazoVal)) {
+                mostrarMensaje("Por favor, completa todos los campos correctamente.", true);
+                return;
+            }
+
+            var montoInteres = montoVal * (interesVal / 100);
+            var montoTotal = montoVal + montoInteres;
+            var valorCuota = (montoTotal / plazoVal).toFixed(2);
+
+            var cuotasArray = [];
+            for (var i = 1; i <= plazoVal; i++) {
+                cuotasArray.push({
+                    numero: i,
+                    monto: valorCuota,
+                    pagado: false
+                });
+            }
+
+            var nuevoPrestamo = {
+                concepto: concepto,
+                montoTotal: montoTotal.toFixed(2),
+                cuotas: cuotasArray
+            };
+
+            listaPrestamos.push(nuevoPrestamo);
+            guardarEnMemoria();
+            mostrarMensaje("¡Préstamo creado con éxito!", false);
+            volverA-Lista();
+        }
+
+        function renderizarListaClientes() {
+            var contenedor = document.getElementById('contenedor-clientes');
+            contenedor.innerHTML = "";
+
+            if (listaPrestamos.length === 0) {
+                contenedor.innerHTML = "<p style='text-align:center; color:#6c757d;'>No hay préstamos registrados.</p>";
+                return;
+            }
+
+            for (var i = 0; i < listaPrestamos.length; i++) {
+                var p = listaPrestamos[i];
+                var div = document.createElement('div');
+                div.className = 'cliente-item';
+                div.innerHTML = '<span>' + p.concepto + '</span><span>Total: $' + p.montoTotal + ' →</span>';
+                // Usamos una función autoejecutable para capturar el índice exacto
+                div.onclick = (function(index) {
+                    return function() { abrirDetalle(index); };
+                })(i);
+                contenedor.appendChild(div);
             }
         }
 
-        function generarPrestamo() {
-            try {
-                var inputConcepto = document.getElementById('concepto').value || "";
-                var inputMonto = document.getElementById('monto').value || "";
-                var inputInteres = document.getElementById('interes').value || "";
-                var inputPlazo = document.getElementById('plazo').value || "";
+        function abrirDetalle(index) {
+            indiceActual = index;
+            var p = listaPrestamos[index];
+            document.getElementById('detalle-titulo').innerText = "Cliente: " + p.concepto;
+            document.getElementById('detalle-info').innerText = "Monto Total con Interés: $" + p.montoTotal;
 
-                var conceptoValor = inputConcepto.trim();
-                var montoValor = inputMonto.trim();
-                var interesValor = inputInteres.trim();
-                var plazoValor = inputPlazo.trim();
+            var tbody = document.getElementById('tabla-cuotas-detalle');
+            tbody.innerHTML = "";
 
-                if (conceptoValor === "") {
-                    mostrarMensaje("Por favor, ingresa el concepto o nombre.", true);
-                    return;
-                }
-                
-                var monto = parseFloat(montoValor);
-                if (isNaN(monto) || monto <= 0) {
-                    mostrarMensaje("Revisa el monto ingresado.", true);
-                    return;
-                }
-                
-                var interes = parseFloat(interesValor);
-                if (isNaN(interes) || interes < 0) {
-                    mostrarMensaje("Revisa el porcentaje de interés.", true);
-                    return;
-                }
-                
-                var plazo = parseInt(plazoValor);
-                if (isNaN(plazo) || plazo <= 0) {
-                    mostrarMensaje("Revisa la cantidad de cuotas.", true);
-                    return;
+            for (var j = 0; j < p.cuotas.length; j++) {
+                var c = p.cuotas[j];
+                var tr = document.createElement('tr');
+                if (c.pagado) {
+                    tr.className = 'pagado';
                 }
 
-                var montoInteres = monto * (interes / 100);
-                var montoTotal = monto + montoInteres;
-                var valorCuota = (montoTotal / plazo).toFixed(2); 
+                var btnHtml = c.pagado 
+                    ? '<button class="btn-gris" disabled>Cobrado</button>' 
+                    : '<button class="btn-verde" onclick="marcarCuota(' + j + ')">Cobrar</button>';
 
-                var cuerpoTabla = document.getElementById('listaCuotas');
-
-                var filaTitulo = document.createElement('tr');
-                filaTitulo.innerHTML = '<td colspan="4" class="separador">Préstamo: ' + conceptoValor + ' - Total: $' + montoTotal.toFixed(2) + '</td>';
-                cuerpoTabla.appendChild(filaTitulo);
-
-                for (var i = 1; i <= plazo; i++) {
-                    var fila = document.createElement('tr');
-                    // Usamos botones generados de forma clásica
-                    fila.innerHTML = '<td>Cuota ' + i + '</td>' +
-                                     '<td>$' + valorCuota + '</td>' +
-                                     '<td class="estado">Pendiente</td>' +
-                                     '<td><button class="boton-cobrar" onclick="marcarPagado(this)">Cobrar</button></td>';
-                    cuerpoTabla.appendChild(fila);
-                }
-
-                guardarDatosEnMemoria();
-                
-                document.getElementById('concepto').value = '';
-                document.getElementById('monto').value = '';
-                document.getElementById('interes').value = '';
-                document.getElementById('plazo').value = '';
-
-                mostrarMensaje("¡Cuotas generadas exitosamente!", false);
-
-            } catch (error) {
-                mostrarMensaje("Fallo al generar cuotas: " + error.message, true);
+                tr.innerHTML = '<td>Cuota ' + c.numero + '</td>' +
+                               '<td>$' + c.monto + '</td>' +
+                               '<td class="estado">' + (c.pagado ? "Pagado" : "Pendiente") + '</td>' +
+                               '<td>' + btnHtml + '</td>';
+                tbody.appendChild(tr);
             }
+
+            cambiarVista('vista-detalle');
         }
 
-        function marcarPagado(boton) {
-            try {
-                var fila = boton.parentElement.parentElement;
-                fila.classList.add('pagado');
-                fila.querySelector('.estado').innerText = "Pagado";
-                boton.setAttribute('disabled', 'true');
-                boton.innerText = "Cobrado";
-                boton.style.backgroundColor = "gray"; 
-                guardarDatosEnMemoria();
-                mostrarMensaje("Cuota cobrada.", false);
-            } catch(error) {
-                mostrarMensaje("Error al marcar pago: " + error.message, true);
-            }
+        function marcarCuota(cuotaIndex) {
+            listaPrestamos[indiceActual].cuotas[cuotaIndex].pagado = true;
+            guardarEnMemoria();
+            abrirDetalle(indiceActual); // Refresca la vista de detalles
+            mostrarMensaje("Cuota marcada como cobrada.", false);
         }
 
-        function guardarDatosEnMemoria() {
+        function guardarEnMemoria() {
             try {
-                var cuerpoTabla = document.getElementById('listaCuotas');
-                localStorage.setItem('memoriaPrestamos', cuerpoTabla.innerHTML);
+                localStorage.setItem('listaPrestamosApp', JSON.stringify(listaPrestamos));
             } catch(e) {
-                // Silencioso, si falla por estar en incógnito, simplemente no guarda
+                console.log("Error al guardar memoria");
             }
         }
 
-        function cargarDatosGuardados() {
+        function cargarDatos() {
             try {
-                var datosGuardados = localStorage.getItem('memoriaPrestamos');
-                if (datosGuardados) {
-                    document.getElementById('listaCuotas').innerHTML = datosGuardados;
+                var datos = localStorage.getItem('listaPrestamosApp');
+                if (datos) {
+                    listaPrestamos = JSON.parse(datos);
                 }
             } catch(e) {
-                mostrarMensaje("Aviso: No se puede cargar el historial en este navegador.", true);
+                listaPrestamos = [];
             }
         }
 
         function limpiarTodo() {
-            if(confirm("¿Estás seguro de que quieres borrar todos los datos?")) {
-                try {
-                    localStorage.removeItem('memoriaPrestamos'); 
-                    document.getElementById('listaCuotas').innerHTML = ""; 
-                    mostrarMensaje("Los datos han sido borrados.", false);
-                } catch(e) {
-                    mostrarMensaje("Error al intentar borrar la memoria.", true);
-                }
+            if(confirm("¿Estás seguro de que deseas borrar todos los clientes y registros?")) {
+                localStorage.removeItem('listaPrestamosApp');
+                listaPrestamos = [];
+                renderizarListaClientes();
+                mostrarMensaje("Todos los datos fueron borrados.", false);
             }
         }
-
-        // 4. INICIALIZACIÓN SEGURA Y CONEXIÓN DE BOTONES
-        document.addEventListener("DOMContentLoaded", function() {
-            // Conectamos los botones usando Event Listeners
-            document.getElementById('btn-generar').addEventListener('click', generarPrestamo);
-            document.getElementById('btn-borrar').addEventListener('click', limpiarTodo);
-            
-            cargarDatosGuardados();
-            mostrarMensaje("La aplicación está lista para usar.", false);
-        });
-
     </script>
 </body>
 </html>
