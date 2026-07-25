@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Control de Préstamos V18 - Corrección y Saldos</title>
+    <title>Control de Préstamos V19 - Corrección de Acceso</title>
     <style>
         body { 
             font-family: Arial, sans-serif; 
@@ -114,7 +114,7 @@
                 <button id="btn-borrar-todo" class="btn-rojo" onclick="limpiarTodo()" style="margin-top: 20px; display: none;">Borrar Todos los Datos de Préstamos (Solo Admin)</button>
             </div>
 
-            <!-- SECCIÓN: COBRO RÁPIDO CON EXCEDENTE EN CASCADA -->
+            <!-- SECCIÓN: COBRO RÁPIDO -->
             <div id="vista-cobro-rapido" class="seccion">
                 <h3>Cobro Rápido por Código</h3>
                 <p style="font-size: 14px; color: #555;">Ingresa el código de 4 dígitos del cliente:</p>
@@ -127,7 +127,7 @@
                 <div id="resultado-busqueda-codigo" style="margin-top: 15px;"></div>
             </div>
 
-            <!-- SECCIÓN: GESTIÓN DE CÓDIGOS DE ACCESO DE USUARIOS -->
+            <!-- SECCIÓN: GESTIÓN DE CÓDIGOS DE ACCESO -->
             <div id="vista-codigos" class="seccion">
                 <h3>Administrar Códigos de Acceso</h3>
                 <label>Nombre del Usuario:</label>
@@ -141,7 +141,7 @@
                 <div id="contenedor-lista-codigos"></div>
             </div>
 
-            <!-- SECCIÓN: FORMULARIO NUEVO PRÉSTAMO -->
+            <!-- SECCIÓN: FORMULARIO NUEVO PRÉSTamo -->
             <div id="vista-formulario" class="seccion">
                 <h3>Nuevo Préstamo</h3>
                 <p style="font-size: 14px; color: #555;">El código de 4 dígitos para este cliente se generará automáticamente.</p>
@@ -162,13 +162,12 @@
                 <button class="btn-gris" onclick="irAVista('vista-lista')">Cancelar</button>
             </div>
 
-            <!-- SECCIÓN: DETALLE DEL CLIENTE SELECCIONADO -->
+            <!-- SECCIÓN: DETALLE DEL CLIENTE -->
             <div id="vista-detalle" class="seccion">
                 <button class="btn-gris" onclick="irAVista('vista-lista')">← Volver a la Lista</button>
                 <h3 id="detalle-titulo">Detalle del Préstamo</h3>
                 <div id="detalle-info" style="margin-bottom: 10px; font-weight: bold; background: #e9ecef; padding: 10px; border-radius: 5px;"></div>
                 
-                <!-- Botón para corregir/deshacer el último pago registrado por equivocación -->
                 <button class="btn-amarillo" onclick="corregirUltimoPago()">🔄 Deshacer / Corregir Último Pago Registrado</button>
 
                 <table>
@@ -188,7 +187,7 @@
     </div>
 
     <script>
-        // CONFIGURACIÓN DE FIREBASE
+        // CONFIGURACIÓN DE FIREBASE (Asegúrate de colocar tus credenciales reales aquí)
         var firebaseConfig = {
             apiKey: "TU_API_KEY",
             authDomain: "tu-proyecto.firebaseapp.com",
@@ -203,9 +202,8 @@
         var db = firebase.database();
 
         var listaPrestamos = [];
-        var listaCodigos = [];
+        var listaCodigos = [{ nombre: "Administrador Principal", codigo: "1234" }]; // Respaldo inicial local por seguridad
         var indiceActual = null;
-        var ADMIN_INICIAL = { nombre: "Administrador Principal", codigo: "1234" };
         var esUsuarioAdmin = false;
 
         document.addEventListener("DOMContentLoaded", function() {
@@ -214,17 +212,22 @@
         });
 
         function sincronizarDatosDesdeNube() {
+            // Sincronizar códigos de acceso
             db.ref('codigos').on('value', function(snapshot) {
                 var data = snapshot.val();
                 if (data) {
                     listaCodigos = Array.isArray(data) ? data : Object.values(data);
+                    // Asegurar siempre que el admin 1234 exista en la primera posición
+                    if (listaCodigos.length === 0 || listaCodigos[0].codigo !== "1234") {
+                        listaCodigos.unshift({ nombre: "Administrador Principal", codigo: "1234" });
+                    }
                 } else {
-                    listaCodigos = [ADMIN_INICIAL];
                     db.ref('codigos').set(listaCodigos);
                 }
                 renderizarListaCodigos();
             });
 
+            // Sincronizar préstamos
             db.ref('prestamos').on('value', function(snapshot) {
                 var data = snapshot.val();
                 if (data) {
@@ -246,10 +249,11 @@
             var autorizado = false;
             esUsuarioAdmin = false;
 
+            // Verificación estricta contra la lista sincronizada o el respaldo local
             for (var i = 0; i < listaCodigos.length; i++) {
-                if (listaCodigos[i].codigo === ingreso) {
+                if (listaCodigos[i].codigo === ingreso.trim()) {
                     autorizado = true;
-                    if (i === 0 || ingreso === "1234") {
+                    if (i === 0 || ingreso.trim() === "1234") {
                         esUsuarioAdmin = true;
                     }
                     break;
@@ -269,7 +273,7 @@
 
                 mostrarMensaje("Acceso autorizado. Rol: " + (esUsuarioAdmin ? "Administrador" : "Cobrador"), false);
             } else {
-                alert("Código de acceso incorrecto.");
+                alert("Código de acceso incorrecto. Por favor, verifica tu código.");
                 document.getElementById('mensaje-bloqueado').style.display = 'block';
                 document.getElementById('app-protegida').style.display = 'none';
             }
@@ -512,7 +516,6 @@
                 
                 if (cuota.pagado) continue; 
 
-                // Guardamos historial previo en la cuota para permitir corrección exacta
                 cuota.historialPrevio = {
                     montoPendienteAnterior: cuota.montoPendiente,
                     pagadoAnterior: cuota.pagado,
@@ -558,7 +561,6 @@
             }
 
             var modificado = false;
-            // Recorremos desde la última cuota hacia la primera para deshacer el cambio más reciente
             for (var j = prestamo.cuotas.length - 1; j >= 0; j--) {
                 var cuota = prestamo.cuotas[j];
                 if (cuota.historialPrevio) {
@@ -586,7 +588,6 @@
             var codTexto = p.codigoCliente ? " Código: [" + p.codigoCliente + "]" : "";
             document.getElementById('detalle-titulo').innerText = "Cliente: " + p.concepto + codTexto;
 
-            // Calcular saldo pendiente total actual del cliente
             var saldoPendienteTotal = 0;
             for (var k = 0; k < p.cuotas.length; k++) {
                 saldoPendienteTotal += p.cuotas[k].montoPendiente;
