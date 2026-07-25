@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Control de Préstamos</title>
+    <title>Control de Préstamos V3</title>
     <style>
         body { 
             font-family: Arial, sans-serif; 
@@ -25,16 +25,23 @@
             box-sizing: border-box;
             font-size: 16px;
         }
-        button {
-            background-color: #0044cc; /* Un azul un poco más oscuro y legible */
+        /* Cambio de color temporal para confirmar actualización visual */
+        #btn-generar {
+            background-color: #28a745; /* Verde */
             color: white;
             border: none;
             cursor: pointer;
             font-weight: bold;
             border-radius: 5px;
         }
-        button:hover { background-color: #003399; }
-        
+        #btn-borrar {
+            background-color: #dc3545; /* Rojo */
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+            border-radius: 5px;
+        }
         table { 
             width: 100%; 
             border-collapse: collapse; 
@@ -52,13 +59,13 @@
             text-decoration: line-through; 
         }
         .boton-cobrar {
-            padding: 8px 5px; /* Un poco más grande para tocar fácil en móvil */
+            padding: 8px 5px; 
             font-size: 14px;
             margin: 0;
-            background-color: #28a745; /* Botón verde para cobrar */
-        }
-        .boton-cobrar:hover {
-            background-color: #218838;
+            background-color: #17a2b8; 
+            color: white;
+            border: none;
+            border-radius: 3px;
         }
         .separador {
             background-color: #e9ecef;
@@ -75,7 +82,6 @@
         <input type="text" id="concepto" placeholder="Ej. Maria Ferreira">
 
         <label>Monto del Préstamo:</label>
-        <!-- Cambiamos a type="tel" para que en los móviles aparezca el teclado numérico grande -->
         <input type="tel" id="monto" placeholder="Ej. 1000000">
         
         <label>Interés Total (%):</label>
@@ -84,9 +90,9 @@
         <label>Plazo (cantidad de cuotas):</label>
         <input type="tel" id="plazo" placeholder="Ej. 44">
         
-        <button onclick="generarPrestamo()">Generar Cuotas</button>
-        
-        <button onclick="limpiarTodo()" style="background-color: #dc3545;">Borrar Todos los Datos</button>
+        <!-- Botón con ID específico -->
+        <button id="btn-generar" onclick="generarPrestamo()">Generar Cuotas (Prueba)</button>
+        <button id="btn-borrar" onclick="limpiarTodo()">Borrar Todos los Datos</button>
 
         <h3>Cronograma de Pagos</h3>
         <table>
@@ -104,50 +110,52 @@
     </div>
 
     <script>
+        // 1. DIAGNÓSTICO INICIAL: Esto debe saltar apenas abres la página
+        alert("¡Versión 3 cargada correctamente en tu móvil! El código está actualizado.");
+
         window.onload = function() {
             cargarDatosGuardados();
         };
 
         function generarPrestamo() {
+            // 2. DIAGNÓSTICO DE BOTÓN: Esto asegura que el botón reacciona al toque
+            alert("El botón funciona. Iniciando los cálculos...");
+
             try {
-                // 1. Obtenemos los valores y usamos .trim() para limpiar espacios invisibles
                 const conceptoValor = document.getElementById('concepto').value.trim();
                 const montoValor = document.getElementById('monto').value.trim();
                 const interesValor = document.getElementById('interes').value.trim();
                 const plazoValor = document.getElementById('plazo').value.trim();
 
-                // 2. Validaciones específicas para saber dónde está el error
                 if (conceptoValor === "") {
-                    alert("Error: Por favor ingresa el Nombre o Concepto.");
+                    alert("Error: Falta el nombre del cliente.");
                     return;
                 }
                 
                 const monto = parseFloat(montoValor);
                 if (isNaN(monto) || monto <= 0) {
-                    alert("Error: El monto ingresado no es válido. Asegúrate de escribir solo números.");
+                    alert("Error: Revisa el monto. Solo ingresa números.");
                     return;
                 }
                 
                 const interes = parseFloat(interesValor);
                 if (isNaN(interes) || interes < 0) {
-                    alert("Error: El interés ingresado no es válido.");
+                    alert("Error: Revisa el interés.");
                     return;
                 }
                 
                 const plazo = parseInt(plazoValor);
                 if (isNaN(plazo) || plazo <= 0) {
-                    alert("Error: El plazo de cuotas no es válido.");
+                    alert("Error: Revisa el plazo.");
                     return;
                 }
 
-                // 3. Cálculos matemáticos
                 const montoInteres = monto * (interes / 100);
                 const montoTotal = monto + montoInteres;
                 const valorCuota = (montoTotal / plazo).toFixed(2); 
 
                 const cuerpoTabla = document.getElementById('listaCuotas');
 
-                // 4. Generación de las filas en la tabla HTML
                 const filaTitulo = document.createElement('tr');
                 filaTitulo.innerHTML = <td colspan="4" class="separador">Préstamo: ${conceptoValor} - Total: $${montoTotal.toFixed(2)}</td>;
                 cuerpoTabla.appendChild(filaTitulo);
@@ -163,17 +171,17 @@
                     cuerpoTabla.appendChild(fila);
                 }
 
-                // Guardamos en la memoria y limpiamos
                 guardarDatosEnMemoria();
+                
                 document.getElementById('concepto').value = '';
                 document.getElementById('monto').value = '';
-                
-                // Mensaje de éxito
-                alert("¡Las cuotas se han generado correctamente!");
+                document.getElementById('interes').value = '';
+                document.getElementById('plazo').value = '';
+
+                alert("¡Cuotas generadas con éxito!");
 
             } catch (error) {
-                // Si algo falla en el código, nos avisará con este mensaje
-                alert("Ocurrió un error interno: " + error.message);
+                alert("Ocurrió un error en el código: " + error.message);
             }
         }
 
@@ -181,15 +189,12 @@
             const fila = boton.parentElement.parentElement;
             fila.classList.add('pagado');
             fila.querySelector('.estado').innerText = "Pagado";
-            
             boton.setAttribute('disabled', 'true');
             boton.innerText = "Cobrado";
             boton.style.backgroundColor = "gray"; 
-
             guardarDatosEnMemoria();
         }
 
-        // --- FUNCIONES DE MEMORIA (LocalStorage) ---
         function guardarDatosEnMemoria() {
             const cuerpoTabla = document.getElementById('listaCuotas');
             localStorage.setItem('memoriaPrestamos', cuerpoTabla.innerHTML);
