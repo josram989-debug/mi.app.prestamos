@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Control de Préstamos V20 - Versión Local</title>
+    <title>Control de Préstamos V21 - Edición de Códigos</title>
     <style>
         body { 
             font-family: Arial, sans-serif; 
@@ -65,11 +65,15 @@
             padding: 12px;
             margin-bottom: 10px;
             border-radius: 5px;
-            cursor: pointer;
             font-weight: bold;
             display: flex;
             justify-content: space-between;
             align-items: center;
+            gap: 10px;
+        }
+        .cliente-item span {
+            flex-grow: 1;
+            word-break: break-word;
         }
         .cliente-item:hover { background-color: #dde2e6; }
         .seccion { display: none; }
@@ -126,13 +130,17 @@
             <!-- SECCIÓN: GESTIÓN DE CÓDIGOS DE ACCESO -->
             <div id="vista-codigos" class="seccion">
                 <h3>Administrar Códigos de Acceso</h3>
+                <input type="hidden" id="edit-index" value="-1">
+                
                 <label>Nombre del Usuario:</label>
                 <input type="text" id="nuevo-usuario-nombre" placeholder="Ej. Cobrador Juan">
 
                 <label>Código de Acceso:</label>
                 <input type="text" id="nuevo-usuario-codigo" placeholder="Ej. 9876">
                 
-                <button class="btn-verde" onclick="agregarNuevoCodigo()">Crear Código</button>
+                <button id="btn-guardar-codigo" class="btn-verde" onclick="guardarOActualizarCodigo()">Crear Código</button>
+                <button id="btn-cancelar-edicion" class="btn-gris" onclick="cancelarEdicionCodigo()" style="display: none;">Cancelar Edición</button>
+                
                 <h4>Códigos Activos:</h4>
                 <div id="contenedor-lista-codigos"></div>
             </div>
@@ -194,7 +202,6 @@
         });
 
         function cargarDatosLocales() {
-            // Cargar códigos de acceso guardados o inicializar con el administrador 1234
             var codigosGuardados = localStorage.getItem('control_prestamos_codigos');
             if (codigosGuardados) {
                 listaCodigos = JSON.parse(codigosGuardados);
@@ -203,7 +210,6 @@
                 localStorage.setItem('control_prestamos_codigos', JSON.stringify(listaCodigos));
             }
 
-            // Cargar préstamos guardados
             var prestamosGuardados = localStorage.getItem('control_prestamos_datos');
             if (prestamosGuardados) {
                 listaPrestamos = JSON.parse(prestamosGuardados);
@@ -258,22 +264,52 @@
             }
         }
 
-        function agregarNuevoCodigo() {
+        function guardarOActualizarCodigo() {
             var nombre = document.getElementById('nuevo-usuario-nombre').value.trim();
             var codigo = document.getElementById('nuevo-usuario-codigo').value.trim();
+            var editIndex = parseInt(document.getElementById('edit-index').value);
 
             if (nombre === "" || codigo === "") {
                 mostrarMensaje("Completa el nombre y el código.", true);
                 return;
             }
 
-            listaCodigos.push({ nombre: nombre, codigo: codigo });
+            if (editIndex === -1) {
+                // Crear nuevo código
+                listaCodigos.push({ nombre: nombre, codigo: codigo });
+                mostrarMensaje("¡Código creado correctamente!", false);
+            } else {
+                // Actualizar código existente
+                listaCodigos[editIndex].nombre = nombre;
+                listaCodigos[editIndex].codigo = codigo;
+                mostrarMensaje("¡Código actualizado correctamente!", false);
+                cancelarEdicionCodigo();
+            }
+
             guardarDatosLocales();
             renderizarListaCodigos();
 
             document.getElementById('nuevo-usuario-nombre').value = "";
             document.getElementById('nuevo-usuario-codigo').value = "";
-            mostrarMensaje("¡Código creado correctamente!", false);
+        }
+
+        function prepararEdicionCodigo(index) {
+            document.getElementById('edit-index').value = index;
+            document.getElementById('nuevo-usuario-nombre').value = listaCodigos[index].nombre;
+            document.getElementById('nuevo-usuario-codigo').value = listaCodigos[index].codigo;
+            
+            document.getElementById('btn-guardar-codigo').innerText = "Actualizar Código";
+            document.getElementById('btn-cancelar-edicion').style.display = 'block';
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function cancelarEdicionCodigo() {
+            document.getElementById('edit-index').value = "-1";
+            document.getElementById('nuevo-usuario-nombre').value = "";
+            document.getElementById('nuevo-usuario-codigo').value = "";
+            
+            document.getElementById('btn-guardar-codigo').innerText = "Crear Código";
+            document.getElementById('btn-cancelar-edicion').style.display = 'none';
         }
 
         function renderizarListaCodigos() {
@@ -285,18 +321,38 @@
                 div.className = 'cliente-item';
                 div.innerHTML = '<span>' + item.nombre + ' (Código: <b>' + item.codigo + '</b>)</span>';
                 
-                if (esUsuarioAdmin && listaCodigos.length > 1 && i !== 0) {
-                    var btnEliminar = document.createElement('button');
-                    btnEliminar.className = 'btn-rojo';
-                    btnEliminar.style.width = '80px';
-                    btnEliminar.style.margin = '0';
-                    btnEliminar.style.padding = '5px';
-                    btnEliminar.innerText = 'Borrar';
-                    btnEliminar.onclick = (function(index) {
-                        return function() { eliminarCodigo(index); };
+                var contenedorAcciones = document.createElement('div');
+                contenedorAcciones.style.display = 'flex';
+                contenedorAcciones.style.gap = '5px';
+
+                // Botón de modificar (disponible para admin o según requerimiento)
+                if (esUsuarioAdmin) {
+                    var btnEditar = document.createElement('button');
+                    btnEditar.className = 'btn-amarillo';
+                    btnEditar.style.width = '80px';
+                    btnEditar.style.margin = '0';
+                    btnEditar.style.padding = '5px';
+                    btnEditar.innerText = 'Editar';
+                    btnEditar.onclick = (function(index) {
+                        return function() { prepararEdicionCodigo(index); };
                     })(i);
-                    div.appendChild(btnEliminar);
+                    contenedorAcciones.appendChild(btnEditar);
+
+                    if (listaCodigos.length > 1 && i !== 0) {
+                        var btnEliminar = document.createElement('button');
+                        btnEliminar.className = 'btn-rojo';
+                        btnEliminar.style.width = '80px';
+                        btnEliminar.style.margin = '0';
+                        btnEliminar.style.padding = '5px';
+                        btnEliminar.innerText = 'Borrar';
+                        btnEliminar.onclick = (function(index) {
+                            return function() { eliminarCodigo(index); };
+                        })(i);
+                        contenedorAcciones.appendChild(btnEliminar);
+                    }
                 }
+
+                div.appendChild(contenedorAcciones);
                 contenedor.appendChild(div);
             }
         }
