@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Control de Préstamos V23 - Login por Usuario y Código</title>
+    <title>Control de Préstamos V24 - Multi-dispositivo</title>
     <style>
         body { 
             font-family: Arial, sans-serif; 
@@ -117,7 +117,6 @@
                 <button class="btn-azul" onclick="mostrarFormularioNuevo()">+ Registrar Nuevo Préstamo</button>
                 <h3>Lista de Clientes</h3>
                 <div id="contenedor-clientes"></div>
-                <!-- BOTÓN DE BORRADO GENERAL: SOLO VISIBLE PARA EL ADMIN -->
                 <button id="btn-borrar-todo" class="btn-rojo" onclick="limpiarTodo()" style="margin-top: 20px; display: none;">Borrar Todos los Datos (Solo Admin)</button>
             </div>
 
@@ -210,15 +209,26 @@
         function cargarDatosLocales() {
             var codigosGuardados = localStorage.getItem('control_prestamos_codigos');
             if (codigosGuardados) {
-                listaCodigos = JSON.parse(codigosGuardados);
-            } else {
+                try {
+                    listaCodigos = JSON.parse(codigosGuardados);
+                } catch(e) {
+                    listaCodigos = [];
+                }
+            }
+            
+            // Si no hay códigos o está vacío, inicializamos por defecto
+            if (!listaCodigos || listaCodigos.length === 0) {
                 listaCodigos = [{ nombre: "Administrador Principal", codigo: "1234" }];
                 localStorage.setItem('control_prestamos_codigos', JSON.stringify(listaCodigos));
             }
 
             var prestamosGuardados = localStorage.getItem('control_prestamos_datos');
             if (prestamosGuardados) {
-                listaPrestamos = JSON.parse(prestamosGuardados);
+                try {
+                    listaPrestamos = JSON.parse(prestamosGuardados);
+                } catch(e) {
+                    listaPrestamos = [];
+                }
             } else {
                 listaPrestamos = [];
             }
@@ -245,13 +255,11 @@
             esUsuarioAdmin = false;
 
             for (var i = 0; i < listaCodigos.length; i++) {
-                // Comparamos ignorando mayúsculas/minúsculas en el nombre y exacto en el código
                 var nombreGuardado = listaCodigos[i].nombre.trim().toLowerCase();
-                var codigoGuardado = listaCodigos[i].codigo.trim();
+                var codigoGuardado = String(listaCodigos[i].codigo).trim();
 
                 if (nombreGuardado === usuarioInput.toLowerCase() && codigoGuardado === codigoInput) {
                     autorizado = true;
-                    // El índice 0 o el código 1234 se consideran Administrador Principal
                     if (i === 0 || codigoGuardado === "1234") {
                         esUsuarioAdmin = true;
                     }
@@ -273,7 +281,7 @@
                 mostrarMensaje("Bienvenido, " + usuarioInput + ". Rol: " + (esUsuarioAdmin ? "Administrador" : "Cobrador"), false);
                 renderizarListaCodigos();
             } else {
-                alert("Nombre de usuario o código incorrecto. Verifica tus datos.");
+                alert("Nombre de usuario o código incorrecto. Verifica tus datos en este dispositivo.");
             }
         }
 
@@ -287,11 +295,10 @@
                 return;
             }
 
-            // Validar que el código no esté repetido
             for (var i = 0; i < listaCodigos.length; i++) {
                 if (editIndex !== -1 && i === editIndex) continue;
 
-                if (listaCodigos[i].codigo === codigo) {
+                if (String(listaCodigos[i].codigo) === codigo) {
                     mostrarMensaje("El código '" + codigo + "' ya le pertenece a '" + listaCodigos[i].nombre + "'. Elige otro diferente.", true);
                     return;
                 }
@@ -669,7 +676,7 @@
                     etiquetaTexto = "Pagado<br><small>" + c.fechaUltimoPago + "</small>";
                 } else if (c.parcial) {
                     tr.className = 'parcial';
-                    etiquetaTexto = "Parcial<br><small>" + c.fechaUltimoPago + "</small>";
+                    etiquetaTexto> "Parcial<br><small>" + c.fechaUltimoPago + "</small>";
                 } else {
                     etiquetaTexto = "Pendiente";
                 }
@@ -691,8 +698,11 @@
             }
             if(confirm("¿Estás seguro de borrar todos los datos guardados?")) {
                 localStorage.removeItem('control_prestamos_datos');
+                localStorage.removeItem('control_prestamos_codigos');
                 listaPrestamos = [];
+                listaCodigos = [{ nombre: "Administrador Principal", codigo: "1234" }];
                 renderizarListaClientes();
+                renderizarListaCodigos();
                 mostrarMensaje("Registros borrados.", false);
             }
         }
