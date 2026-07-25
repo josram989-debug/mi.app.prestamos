@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Control de Préstamos V7</title>
+    <title>Control de Préstamos V7.1</title>
     <style>
         body { 
             font-family: Arial, sans-serif; 
@@ -81,9 +81,7 @@
         <div id="vista-lista" class="seccion activa">
             <button class="btn-azul" onclick="mostrarFormularioNuevo()">+ Registrar Nuevo Préstamo</button>
             <h3>Lista de Clientes</h3>
-            <div id="contenedor-clientes">
-                <!-- Aquí se cargarán los clientes guardados -->
-            </div>
+            <div id="contenedor-clientes"></div>
             <button class="btn-rojo" onclick="limpiarTodo()" style="margin-top: 20px;">Borrar Todos los Datos</button>
         </div>
 
@@ -103,12 +101,12 @@
             <input type="tel" id="plazo" placeholder="Ej. 44">
             
             <button class="btn-verde" onclick="guardarNuevoPrestamo()">Guardar y Generar Cuotas</button>
-            <button class="btn-gris" onclick="volverA-Lista()">Cancelar</button>
+            <button class="btn-gris" onclick="volverALista()">Cancelar</button>
         </div>
 
         <!-- SECCIÓN 3: DETALLE DEL CLIENTE SELECCIONADO -->
         <div id="vista-detalle" class="seccion">
-            <button class="btn-gris" onclick="volverA-Lista()">← Volver a la Lista</button>
+            <button class="btn-gris" onclick="volverALista()">← Volver a la Lista</button>
             <h3 id="detalle-titulo">Detalle del Préstamo</h3>
             <div id="detalle-info" style="margin-bottom: 10px; font-weight: bold;"></div>
             
@@ -131,10 +129,10 @@
         var listaPrestamos = [];
         var indiceActual = null;
 
-        // Cargar datos al iniciar
         document.addEventListener("DOMContentLoaded", function() {
             cargarDatos();
             renderizarListaClientes();
+            mostrarMensaje("Sistema listo.", false);
         });
 
         function mostrarMensaje(texto, esError) {
@@ -160,7 +158,7 @@
             cambiarVista('vista-formulario');
         }
 
-        function volverA-Lista() {
+        function volverALista() {
             renderizarListaClientes();
             cambiarVista('vista-lista');
         }
@@ -198,7 +196,7 @@
             listaPrestamos.push(nuevoPrestamo);
             guardarEnMemoria();
             mostrarMensaje("¡Préstamo creado con éxito!", false);
-            volverA-Lista();
+            volverALista();
         }
 
         function renderizarListaClientes() {
@@ -215,10 +213,11 @@
                 var div = document.createElement('div');
                 div.className = 'cliente-item';
                 div.innerHTML = '<span>' + p.concepto + '</span><span>Total: $' + p.montoTotal + ' →</span>';
-                // Usamos una función autoejecutable para capturar el índice exacto
+                
                 div.onclick = (function(index) {
                     return function() { abrirDetalle(index); };
                 })(i);
+                
                 contenedor.appendChild(div);
             }
         }
@@ -256,7 +255,7 @@
         function marcarCuota(cuotaIndex) {
             listaPrestamos[indiceActual].cuotas[cuotaIndex].pagado = true;
             guardarEnMemoria();
-            abrirDetalle(indiceActual); // Refresca la vista de detalles
+            abrirDetalle(indiceActual);
             mostrarMensaje("Cuota marcada como cobrada.", false);
         }
 
