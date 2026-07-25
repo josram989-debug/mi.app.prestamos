@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <!-- Ajuste para que se vea bien en pantallas de teléfonos móviles -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Control de Préstamos</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            padding: 15px; 
+            background-color: #f4f4f9;
+        }
+        .contenedor { 
+            max-width: 600px; 
+            margin: auto; 
+            background: white; 
+            padding: 20px; 
+            border-radius: 8px; 
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        input, button { 
+            padding: 10px; 
+            margin: 5px 0 15px 0; 
+            width: 100%; 
+            box-sizing: border-box;
+            font-size: 16px; /* Letra más grande para tocar fácil en el móvil */
+        }
+        button {
+            background-color: #007BFF;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+            border-radius: 5px;
+        }
+        button:hover { background-color: #0056b3; }
+        
+        table { 
+            width: 100%; 
+            border-collapse: collapse; 
+            margin-top: 10px; 
+            font-size: 14px;
+        }
+        th, td { 
+            border: 1px solid #ddd; 
+            padding: 8px; 
+            text-align: center; 
+        }
+        .pagado { 
+            background-color: #d4edda; 
+            color: #155724;
+            text-decoration: line-through; 
+        }
+        .boton-cobrar {
+            padding: 5px;
+            font-size: 14px;
+            margin: 0;
+        }
+        .separador {
+            background-color: #e9ecef;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="contenedor">
+        <h2>Registrar Nuevo Préstamo</h2>
+        
+        <!-- Nuevo campo para identificar el préstamo -->
+        <label>Concepto / Cliente:</label>
+        <input type="text" id="concepto" placeholder="Ej. Reparación de placa A/C">
+
+        <label>Monto del Préstamo:</label>
+        <input type="number" id="monto" placeholder="Ej. 1000">
+        
+        <label>Interés Total (%):</label>
+        <input type="number" id="interes" placeholder="Ej. 15">
+        
+        <label>Plazo (cantidad de cuotas):</label>
+        <input type="number" id="plazo" placeholder="Ej. 6">
+        
+        <button onclick="generarPrestamo()">Generar Cuotas</button>
+        
+        <!-- Botón para borrar toda la memoria si cometemos un error -->
+        <button onclick="limpiarTodo()" style="background-color: #dc3545;">Borrar Todos los Datos</button>
+
+        <h3>Cronograma de Pagos</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Detalle</th>
+                    <th>Monto</th>
+                    <th>Estado</th>
+                    <th>Acción</th>
+                </tr>
+            </thead>
+            <tbody id="listaCuotas">
+                <!-- Las filas se cargarán aquí -->
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        // Esta función se ejecuta automáticamente al abrir la página
+        window.onload = function() {
+            cargarDatosGuardados();
+        };
+
+        function generarPrestamo() {
+            const concepto = document.getElementById('concepto').value;
+            const monto = parseFloat(document.getElementById('monto').value);
+            const interes = parseFloat(document.getElementById('interes').value);
+            const plazo = parseInt(document.getElementById('plazo').value);
+
+            if (!concepto || isNaN(monto) || isNaN(interes) || isNaN(plazo)) {
+                alert("Por favor, completa todos los campos correctamente.");
+                return;
+            }
+
+            const montoInteres = monto * (interes / 100);
+            const montoTotal = monto + montoInteres;
+            const valorCuota = (montoTotal / plazo).toFixed(2); 
+
+            const cuerpoTabla = document.getElementById('listaCuotas');
+
+            // Fila de encabezado para separar diferentes préstamos
+            const filaTitulo = document.createElement('tr');
+            filaTitulo.innerHTML = <td colspan="4" class="separador">Préstamo: ${concepto} - Total: $${montoTotal}</td>;
+            cuerpoTabla.appendChild(filaTitulo);
+
+            for (let i = 1; i <= plazo; i++) {
+                const fila = document.createElement('tr');
+                fila.innerHTML = `
+                    <td>Cuota ${i}</td>
+                    <td>$${valorCuota}</td>
+                    <td class="estado">Pendiente</td>
+                    <td><button class="boton-cobrar" onclick="marcarPagado(this)">Cobrar</button></td>
+                `;
+                cuerpoTabla.appendChild(fila);
+            }
+
+            // Después de generar las filas, guardamos el nuevo estado de la tabla
+            guardarDatosEnMemoria();
+            
+            // Limpiamos los campos de texto
+            document.getElementById('concepto').value = '';
+            document.getElementById('monto').value = '';
+        }
+
+        function marcarPagado(boton) {
+            const fila = boton.parentElement.parentElement;
+            fila.classList.add('pagado');
+            fila.querySelector('.estado').innerText = "Pagado";
+            
+            // Usamos setAttribute para que el HTML recuerde que el botón está desactivado
+            boton.setAttribute('disabled', 'true');
+            boton.innerText = "Cobrado";
+            boton.style.backgroundColor = "gray"; 
+
+            // Cada vez que cobramos, actualizamos la memoria
+            guardarDatosEnMemoria();
+        }
+
+        // --- FUNCIONES DE MEMORIA (LocalStorage) ---
+
+        function guardarDatosEnMemoria() {
+            const cuerpoTabla = document.getElementById('listaCuotas');
+            // Guardamos todo el código HTML que está dentro de la tabla
+            localStorage.setItem('memoriaPrestamos', cuerpoTabla.innerHTML);
+        }
+
+        function cargarDatosGuardados() {
+            const datosGuardados = localStorage.getItem('memoriaPrestamos');
+            // Si hay datos guardados previamente, los metemos en la tabla
+            if (datosGuardados) {
+                document.getElementById('listaCuotas').innerHTML = datosGuardados;
+            }
+        }
+
+        function limpiarTodo() {
+            if(confirm("¿Estás seguro de que quieres borrar todo el historial?")) {
+                localStorage.removeItem('memoriaPrestamos'); // Borramos la memoria
+                document.getElementById('listaCuotas').innerHTML = ""; // Limpiamos la pantalla
+            }
+        }
+    </script>
+</body>
+</html>
