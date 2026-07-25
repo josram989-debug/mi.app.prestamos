@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Control de Préstamos V10 - Cobro por Código</title>
+    <title>Control de Préstamos V12 - Fechas y Códigos Automáticos</title>
     <style>
         body { 
             font-family: Arial, sans-serif; 
@@ -43,17 +43,21 @@
             width: 100%; 
             border-collapse: collapse; 
             margin-top: 10px; 
-            font-size: 14px;
+            font-size: 13px;
         }
         th, td { 
             border: 1px solid #ddd; 
-            padding: 8px; 
+            padding: 6px; 
             text-align: center; 
         }
         .pagado { 
             background-color: #d4edda; 
             color: #155724;
             text-decoration: line-through; 
+        }
+        .parcial {
+            background-color: #fff3cd;
+            color: #856404;
         }
         .cliente-item {
             background: #e9ecef;
@@ -104,10 +108,10 @@
                 <button class="btn-rojo" onclick="limpiarTodo()" style="margin-top: 20px;">Borrar Todos los Datos de Préstamos</button>
             </div>
 
-            <!-- SECCIÓN NUEVA: COBRO RÁPIDO POR CÓDIGO DE 4 DÍGITOS -->
+            <!-- SECCIÓN NUEVA: COBRO RÁPIDO CON FECHA AUTOMÁTICA -->
             <div id="vista-cobro-rapido" class="seccion">
                 <h3>Cobro Rápido por Código</h3>
-                <p style="font-size: 14px; color: #555;">Ingresa el código de 4 dígitos del cliente para consultar su cuenta y cobrar la siguiente cuota pendiente:</p>
+                <p style="font-size: 14px; color: #555;">Ingresa el código de 4 dígitos del cliente:</p>
                 
                 <label>Código de Cliente (4 Dígitos):</label>
                 <input type="tel" id="input-buscar-codigo" placeholder="Ej. 1001" maxlength="4">
@@ -132,12 +136,11 @@
                 <div id="contenedor-lista-codigos"></div>
             </div>
 
-            <!-- SECCIÓN: FORMULARIO NUEVO PRÉSTAMO -->
+            <!-- SECCIÓN: FORMULARIO NUEVO PRÉSTAMO (CÓDIGO AUTOMÁTICO) -->
             <div id="vista-formulario" class="seccion">
                 <h3>Nuevo Préstamo</h3>
-                <label>Código de 4 Dígitos para el Cliente:</label>
-                <input type="tel" id="codigo-cliente" placeholder="Ej. 1001" maxlength="4">
-
+                <p style="font-size: 14px; color: #555;">El código de 4 dígitos para este cliente se generará automáticamente.</p>
+                
                 <label>Concepto / Nombre del Cliente:</label>
                 <input type="text" id="concepto" placeholder="Ej. Maria Ferreira">
 
@@ -163,9 +166,10 @@
                 <table>
                     <thead>
                         <tr>
-                            <th>Detalle</th>
-                            <th>Monto</th>
-                            <th>Estado</th>
+                            <th>Cuota</th>
+                            <th>Original</th>
+                            <th>Pendiente</th>
+                            <th>Estado / Fecha</th>
                             <th>Acción</th>
                         </tr>
                     </thead>
@@ -301,7 +305,6 @@
         }
 
         function mostrarFormularioNuevo() {
-            document.getElementById('codigo-cliente').value = '';
             document.getElementById('concepto').value = '';
             document.getElementById('monto').value = '';
             document.getElementById('interes').value = '';
@@ -309,33 +312,46 @@
             irAVista('vista-formulario');
         }
 
+        // Función para generar un código secuencial automático de 4 dígitos
+        function generarSiguienteCodigoCliente() {
+            var mayor = 1000;
+            for (var i = 0; i < listaPrestamos.length; i++) {
+                var c = parseInt(listaPrestamos[i].codigoCliente);
+                if (!isNaN(c) && c >= mayor) {
+                    mayor = c + 1;
+                }
+            }
+            // Aseguramos formato de 4 dígitos (ej: 1001, 1002...)
+            if (mayor < 1000) mayor = 1001;
+            return mayor.toString();
+        }
+
         function guardarNuevoPrestamo() {
-            var codCliente = document.getElementById('codigo-cliente').value.trim();
             var concepto = document.getElementById('concepto').value.trim();
             var montoVal = parseFloat(document.getElementById('monto').value);
             var interesVal = parseFloat(document.getElementById('interes').value);
             var plazoVal = parseInt(document.getElementById('plazo').value);
-
-            if (codCliente.length !== 4 || isNaN(codCliente)) {
-                mostrarMensaje("El código del cliente debe tener exactamente 4 dígitos numéricos.", true);
-                return;
-            }
 
             if (concepto === "" || isNaN(montoVal) || isNaN(interesVal) || isNaN(plazoVal)) {
                 mostrarMensaje("Por favor, completa todos los campos correctamente.", true);
                 return;
             }
 
+            var codCliente = generarSiguienteCodigoCliente();
+
             var montoInteres = montoVal * (interesVal / 100);
             var montoTotal = montoVal + montoInteres;
-            var valorCuota = (montoTotal / plazoVal).toFixed(2);
+            var valorCuota = parseFloat((montoTotal / plazoVal).toFixed(2));
 
             var cuotasArray = [];
             for (var i = 1; i <= plazoVal; i++) {
                 cuotasArray.push({
                     numero: i,
-                    monto: valorCuota,
-                    pagado: false
+                    montoOriginal: valorCuota,
+                    montoPendiente: valorCuota,
+                    pagado: false,
+                    parcial: false,
+                    fechaUltimoPago: "-"
                 });
             }
 
@@ -348,7 +364,7 @@
 
             listaPrestamos.push(nuevoPrestamo);
             guardarPrestamosEnMemoria();
-            mostrarMensaje("¡Préstamo creado con éxito!", false);
+            mostrarMensaje("¡Préstamo creado con éxito! Código asignado: " + codCliente, false);
             irAVista('vista-lista');
             renderizarListaClientes();
         }
@@ -373,6 +389,16 @@
                 })(i);
                 contenedor.appendChild(div);
             }
+        }
+
+        function obtenerFechaActualFormateada() {
+            var ahora = new Date();
+            var dia = String(ahora.getDate()).padStart(2, '0');
+            var mes = String(ahora.getMonth() + 1).padStart(2, '0');
+            var anio = ahora.getFullYear();
+            var hora = String(ahora.getHours()).padStart(2, '0');
+            var min = String(ahora.getMinutes()).padStart(2, '0');
+            return dia + '/' + mes + '/' + anio + ' ' + hora + ':' + min;
         }
 
         function buscarClientePorCodigo() {
@@ -401,7 +427,6 @@
                 return;
             }
 
-            // Buscar la primera cuota pendiente
             var cuotaPendienteIndex = -1;
             var cuotaPendienteObj = null;
 
@@ -414,12 +439,17 @@
             }
 
             var htmlResultado = "<div style='background: #e9ecef; padding: 15px; border-radius: 5px;'>";
-            htmlResultado += "<h4>Cliente: " + clienteEncontrado.concepto + "</h4>";
+            htmlResultado += "<h4>Cliente: [" + clienteEncontrado.codigoCliente + "] " + clienteEncontrado.concepto + "</h4>";
 
             if (cuotaPendienteObj) {
-                htmlResultado += "<p style='font-size: 18px; color: #28a745;'>Siguiente cuota a cobrar: <b>Cuota " + cuotaPendienteObj.numero + "</b></p>";
-                htmlResultado += "<p style='font-size: 22px; font-weight: bold;'>Monto a abonar: $" + cuotaPendienteObj.monto + "</p>";
-                htmlResultado += "<button class='btn-verde' onclick='cobrarCuotaRapida(" + indiceEncontrado + ", " + cuotaPendienteIndex + ")'>Confirmar y Cobrar Esta Cuota</button>";
+                var estadoTxt = cuotaPendienteObj.parcial ? " (Pago Parcial Anterior)" : "";
+                htmlResultado += "<p style='font-size: 16px; color: #333;'>Atendiendo: <b>Cuota " + cuotaPendienteObj.numero + "</b>" + estadoTxt + "</p>";
+                htmlResultado += "<p style='font-size: 18px; font-weight: bold;'>Saldo Pendiente: $" + cuotaPendienteObj.montoPendiente.toFixed(2) + "</p>";
+                
+                htmlResultado += "<label>Ingrese el monto entregado en dígitos:</label>";
+                htmlResultado += "<input type='tel' id='input-monto-ingresado' placeholder='Ej. " + cuotaPendienteObj.montoPendiente.toFixed(2) + "'>";
+                
+                htmlResultado += "<button class='btn-verde' onclick='procesarPagoConMontoLibre(" + indiceEncontrado + ", " + cuotaPendienteIndex + ")'>Registrar Pago y Fecha</button>";
             } else {
                 htmlResultado += "<p style='color: green; font-weight: bold;'>¡Este cliente ya pagó todas sus cuotas!</p>";
             }
@@ -430,10 +460,34 @@
             contenedorResultado.innerHTML = htmlResultado;
         }
 
-        function cobrarCuotaRapida(indicePrestamo, indiceCuota) {
-            listaPrestamos[indicePrestamo].cuotas[indiceCuota].pagado = true;
+        function procesarPagoConMontoLibre(indicePrestamo, indiceCuota) {
+            var inputMonto = document.getElementById('input-monto-ingresado').value;
+            var montoPagado = parseFloat(inputMonto);
+
+            if (isNaN(montoPagado) || montoPagado <= 0) {
+                alert("Por favor, ingresa un monto válido en números.");
+                return;
+            }
+
+            var prestamo = listaPrestamos[indicePrestamo];
+            var cuota = prestamo.cuotas[indiceCuota];
+            var fechaActual = obtenerFechaActualFormateada();
+
+            if (montoPagado >= cuota.montoPendiente) {
+                cuota.montoPendiente = 0;
+                cuota.pagado = true;
+                cuota.parcial = false;
+                cuota.fechaUltimoPago = fechaActual;
+                mostrarMensaje("¡Cuota " + cuota.numero + " pagada el " + fechaActual + "!", false);
+            } else {
+                cuota.montoPendiente -= montoPagado;
+                cuota.pagado = false;
+                cuota.parcial = true;
+                cuota.fechaUltimoPago = fechaActual;
+                mostrarMensaje("Pago parcial registrado el " + fechaActual + ".", false);
+            }
+
             guardarPrestamosEnMemoria();
-            mostrarMensaje("¡Cobro registrado con éxito!", false);
             document.getElementById('input-buscar-codigo').value = "";
             document.getElementById('resultado-busqueda-codigo').innerHTML = "";
             abrirDetalle(indicePrestamo);
@@ -442,7 +496,7 @@
         function abrirDetalle(index) {
             indiceActual = index;
             var p = listaPrestamos[index];
-            var codTexto = p.codigoCliente ? " Código: " + p.codigoCliente : "";
+            var codTexto = p.codigoCliente ? " Código: [" + p.codigoCliente + "]" : "";
             document.getElementById('detalle-titulo').innerText = "Cliente: " + p.concepto + codTexto;
             document.getElementById('detalle-info').innerText = "Monto Total con Interés: $" + p.montoTotal;
 
@@ -452,17 +506,24 @@
             for (var j = 0; j < p.cuotas.length; j++) {
                 var c = p.cuotas[j];
                 var tr = document.createElement('tr');
+                
+                var estadoTexto = "Pendiente";
                 if (c.pagado) {
                     tr.className = 'pagado';
+                    estadoTexto = "Pagado<br><small>" + c.fechaUltimoPago + "</small>";
+                } else if (c.parcial) {
+                    tr.className = 'parcial';
+                    estadoTexto = "Parcial<br><small>" + c.fechaUltimoPago + "</small>";
                 }
 
                 var btnHtml = c.pagado 
-                    ? '<button class="btn-gris" disabled>Cobrado</button>' 
-                    : '<button class="btn-verde" onclick="marcarCuota(' + j + ')">Cobrar</button>';
+                    ? '<button class="btn-gris" disabled>Listo</button>' 
+                    : '<button class="btn-verde" onclick="cobrarDesdeCronograma(' + index + ', ' + j + ')">Cobrar</button>';
 
                 tr.innerHTML = '<td>Cuota ' + c.numero + '</td>' +
-                               '<td>$' + c.monto + '</td>' +
-                               '<td class="estado">' + (c.pagado ? "Pagado" : "Pendiente") + '</td>' +
+                               '<td>$' + c.montoOriginal.toFixed(2) + '</td>' +
+                               '<td>$' + c.montoPendiente.toFixed(2) + '</td>' +
+                               '<td>' + estadoTexto + '</td>' +
                                '<td>' + btnHtml + '</td>';
                 tbody.appendChild(tr);
             }
@@ -470,11 +531,36 @@
             irAVista('vista-detalle');
         }
 
-        function marcarCuota(cuotaIndex) {
-            listaPrestamos[indiceActual].cuotas[cuotaIndex].pagado = true;
+        function cobrarDesdeCronograma(indicePrestamo, indiceCuota) {
+            var cuota = listaPrestamos[indicePrestamo].cuotas[indiceCuota];
+            var ingreso = prompt("Monto pendiente actual: $" + cuota.montoPendiente.toFixed(2) + "\nIngrese el monto que entrega el cliente:");
+            
+            if (ingreso === null) return;
+            var montoPagado = parseFloat(ingreso);
+
+            if (isNaN(montoPagado) || montoPagado <= 0) {
+                alert("Monto inválido.");
+                return;
+            }
+
+            var fechaActual = obtenerFechaActualFormateada();
+
+            if (montoPagado >= cuota.montoPendiente) {
+                cuota.montoPendiente = 0;
+                cuota.pagado = true;
+                cuota.parcial = false;
+                cuota.fechaUltimoPago = fechaActual;
+                mostrarMensaje("Cuota liquidada el " + fechaActual, false);
+            } else {
+                cuota.montoPendiente -= montoPagado;
+                cuota.pagado = false;
+                cuota.parcial = true;
+                cuota.fechaUltimoPago = fechaActual;
+                mostrarMensaje("Pago parcial aplicado el " + fechaActual, false);
+            }
+
             guardarPrestamosEnMemoria();
-            abrirDetalle(indiceActual);
-            mostrarMensaje("Cuota marcada como cobrada.", false);
+            abrirDetalle(indicePrestamo);
         }
 
         function guardarPrestamosEnMemoria() {
