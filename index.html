@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Control de Préstamos V19 - Corrección de Acceso</title>
+    <title>Control de Préstamos V20 - Versión Local</title>
     <style>
         body { 
             font-family: Arial, sans-serif; 
@@ -77,10 +77,6 @@
         
         #app-protegida { display: none; }
     </style>
-
-    <!-- Importar Firebase SDK -->
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 </head>
 <body>
 
@@ -111,7 +107,7 @@
                 <h3>Lista de Clientes</h3>
                 <div id="contenedor-clientes"></div>
                 <!-- BOTÓN DE BORRADO GENERAL: SOLO VISIBLE PARA EL ADMIN -->
-                <button id="btn-borrar-todo" class="btn-rojo" onclick="limpiarTodo()" style="margin-top: 20px; display: none;">Borrar Todos los Datos de Préstamos (Solo Admin)</button>
+                <button id="btn-borrar-todo" class="btn-rojo" onclick="limpiarTodo()" style="margin-top: 20px; display: none;">Borrar Todos los Datos (Solo Admin)</button>
             </div>
 
             <!-- SECCIÓN: COBRO RÁPIDO -->
@@ -141,7 +137,7 @@
                 <div id="contenedor-lista-codigos"></div>
             </div>
 
-            <!-- SECCIÓN: FORMULARIO NUEVO PRÉSTamo -->
+            <!-- SECCIÓN: FORMULARIO NUEVO PRÉSTAMO -->
             <div id="vista-formulario" class="seccion">
                 <h3>Nuevo Préstamo</h3>
                 <p style="font-size: 14px; color: #555;">El código de 4 dígitos para este cliente se generará automáticamente.</p>
@@ -187,73 +183,55 @@
     </div>
 
     <script>
-        // CONFIGURACIÓN DE FIREBASE (Asegúrate de colocar tus credenciales reales aquí)
-        var firebaseConfig = {
-            apiKey: "TU_API_KEY",
-            authDomain: "tu-proyecto.firebaseapp.com",
-            databaseURL: "https://tu-proyecto-default-rtdb.firebaseio.com",
-            projectId: "tu-proyecto",
-            storageBucket: "tu-proyecto.appspot.com",
-            messagingSenderId: "TU_SENDER_ID",
-            appId: "TU_APP_ID"
-        };
-
-        firebase.initializeApp(firebaseConfig);
-        var db = firebase.database();
-
         var listaPrestamos = [];
-        var listaCodigos = [{ nombre: "Administrador Principal", codigo: "1234" }]; // Respaldo inicial local por seguridad
+        var listaCodigos = [];
         var indiceActual = null;
         var esUsuarioAdmin = false;
 
         document.addEventListener("DOMContentLoaded", function() {
-            sincronizarDatosDesdeNube();
+            cargarDatosLocales();
             pedirCodigoAcceso();
         });
 
-        function sincronizarDatosDesdeNube() {
-            // Sincronizar códigos de acceso
-            db.ref('codigos').on('value', function(snapshot) {
-                var data = snapshot.val();
-                if (data) {
-                    listaCodigos = Array.isArray(data) ? data : Object.values(data);
-                    // Asegurar siempre que el admin 1234 exista en la primera posición
-                    if (listaCodigos.length === 0 || listaCodigos[0].codigo !== "1234") {
-                        listaCodigos.unshift({ nombre: "Administrador Principal", codigo: "1234" });
-                    }
-                } else {
-                    db.ref('codigos').set(listaCodigos);
-                }
-                renderizarListaCodigos();
-            });
+        function cargarDatosLocales() {
+            // Cargar códigos de acceso guardados o inicializar con el administrador 1234
+            var codigosGuardados = localStorage.getItem('control_prestamos_codigos');
+            if (codigosGuardados) {
+                listaCodigos = JSON.parse(codigosGuardados);
+            } else {
+                listaCodigos = [{ nombre: "Administrador Principal", codigo: "1234" }];
+                localStorage.setItem('control_prestamos_codigos', JSON.stringify(listaCodigos));
+            }
 
-            // Sincronizar préstamos
-            db.ref('prestamos').on('value', function(snapshot) {
-                var data = snapshot.val();
-                if (data) {
-                    listaPrestamos = Array.isArray(data) ? data : Object.values(data);
-                } else {
-                    listaPrestamos = [];
-                }
-                renderizarListaClientes();
-                if (indiceActual !== null && listaPrestamos[indiceActual]) {
-                    abrirDetalle(indiceActual);
-                }
-            });
+            // Cargar préstamos guardados
+            var prestamosGuardados = localStorage.getItem('control_prestamos_datos');
+            if (prestamosGuardados) {
+                listaPrestamos = JSON.parse(prestamosGuardados);
+            } else {
+                listaPrestamos = [];
+            }
+
+            renderizarListaCodigos();
+            renderizarListaClientes();
+        }
+
+        function guardarDatosLocales() {
+            localStorage.setItem('control_prestamos_codigos', JSON.stringify(listaCodigos));
+            localStorage.setItem('control_prestamos_datos', JSON.stringify(listaPrestamos));
         }
 
         function pedirCodigoAcceso() {
             var ingreso = prompt("Ingrese su código de acceso personal:");
             if (ingreso === null) return;
 
+            var codigoLimpio = ingreso.trim();
             var autorizado = false;
             esUsuarioAdmin = false;
 
-            // Verificación estricta contra la lista sincronizada o el respaldo local
             for (var i = 0; i < listaCodigos.length; i++) {
-                if (listaCodigos[i].codigo === ingreso.trim()) {
+                if (listaCodigos[i].codigo === codigoLimpio) {
                     autorizado = true;
-                    if (i === 0 || ingreso.trim() === "1234") {
+                    if (i === 0 || codigoLimpio === "1234") {
                         esUsuarioAdmin = true;
                     }
                     break;
@@ -272,8 +250,9 @@
                 }
 
                 mostrarMensaje("Acceso autorizado. Rol: " + (esUsuarioAdmin ? "Administrador" : "Cobrador"), false);
+                renderizarListaCodigos();
             } else {
-                alert("Código de acceso incorrecto. Por favor, verifica tu código.");
+                alert("Código de acceso incorrecto. Intenta nuevamente.");
                 document.getElementById('mensaje-bloqueado').style.display = 'block';
                 document.getElementById('app-protegida').style.display = 'none';
             }
@@ -289,7 +268,9 @@
             }
 
             listaCodigos.push({ nombre: nombre, codigo: codigo });
-            db.ref('codigos').set(listaCodigos);
+            guardarDatosLocales();
+            renderizarListaCodigos();
+
             document.getElementById('nuevo-usuario-nombre').value = "";
             document.getElementById('nuevo-usuario-codigo').value = "";
             mostrarMensaje("¡Código creado correctamente!", false);
@@ -327,7 +308,8 @@
             }
             if (confirm("¿Estás seguro de eliminar este código?")) {
                 listaCodigos.splice(index, 1);
-                db.ref('codigos').set(listaCodigos);
+                guardarDatosLocales();
+                renderizarListaCodigos();
                 mostrarMensaje("Código eliminado.", false);
             }
         }
@@ -405,7 +387,8 @@
             };
 
             listaPrestamos.push(nuevoPrestamo);
-            db.ref('prestamos').set(listaPrestamos);
+            guardarDatosLocales();
+            renderizarListaClientes();
             mostrarMensaje("¡Préstamo guardado! Código: " + codCliente, false);
             irAVista('vista-lista');
         }
@@ -545,7 +528,7 @@
                 }
             }
 
-            db.ref('prestamos').set(listaPrestamos);
+            guardarDatosLocales();
             mostrarMensaje("¡Pago registrado! Cuotas afectadas: " + cuotasAfectadas, false);
             document.getElementById('input-buscar-codigo').value = "";
             document.getElementById('resultado-busqueda-codigo').innerHTML = "";
@@ -574,7 +557,7 @@
             }
 
             if (modificado) {
-                db.ref('prestamos').set(listaPrestamos);
+                guardarDatosLocales();
                 mostrarMensaje("Se ha revertido el último pago correctamente.", false);
                 abrirDetalle(indiceActual);
             } else {
@@ -630,8 +613,8 @@
                 alert("Acción no autorizada.");
                 return;
             }
-            if(confirm("¿Estás seguro de borrar todos los préstamos de la nube?")) {
-                db.ref('prestamos').remove();
+            if(confirm("¿Estás seguro de borrar todos los datos guardados?")) {
+                localStorage.removeItem('control_prestamos_datos');
                 listaPrestamos = [];
                 renderizarListaClientes();
                 mostrarMensaje("Registros borrados.", false);
